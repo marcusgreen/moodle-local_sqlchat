@@ -43,6 +43,53 @@ echo html_writer::tag('label',
     get_string('form:question', 'local_sqlchat'),
     ['for' => 'sqlchat-question']
 );
+$helpbody = html_writer::tag('p', get_string('form:helpintro', 'local_sqlchat'));
+$helpbody .= html_writer::tag('p', get_string('form:helptips', 'local_sqlchat'));
+$helpbody .= html_writer::tag('p', get_string('form:helpexamples', 'local_sqlchat'));
+$helpbody .= html_writer::start_tag('ul');
+$helpbody .= html_writer::tag('li', get_string('form:helpexample1', 'local_sqlchat'));
+$helpbody .= html_writer::tag('li', get_string('form:helpexample2', 'local_sqlchat'));
+$helpbody .= html_writer::tag('li', get_string('form:helpexample3', 'local_sqlchat'));
+$helpbody .= html_writer::end_tag('ul');
+$helpbody .= html_writer::tag('p', html_writer::link(
+    'https://www.examulator.com/ai',
+    get_string('form:helpmore', 'local_sqlchat'),
+    ['target' => '_blank', 'rel' => 'noopener']
+));
+
+echo html_writer::tag('a',
+    $OUTPUT->pix_icon('docs', get_string('form:helpsummary', 'local_sqlchat')),
+    [
+        'href' => '#',
+        'role' => 'button',
+        'tabindex' => '0',
+        'class' => 'ml-1',
+        'data-toggle' => 'popover',
+        'data-bs-toggle' => 'popover',
+        'data-trigger' => 'focus',
+        'data-bs-trigger' => 'focus',
+        'data-html' => 'true',
+        'data-bs-html' => 'true',
+        'data-placement' => 'right',
+        'data-bs-placement' => 'right',
+        'title' => get_string('form:helpsummary', 'local_sqlchat'),
+        'data-content' => $helpbody,
+        'data-bs-content' => $helpbody,
+        'onclick' => 'return false;',
+    ]
+);
+
+$PAGE->requires->js_amd_inline("
+require(['jquery'], function(\$) {
+    if (typeof \$.fn.popover === 'function') {
+        \$('[data-toggle=\"popover\"]').popover({container: 'body'});
+    } else if (window.bootstrap && bootstrap.Popover) {
+        document.querySelectorAll('[data-bs-toggle=\"popover\"]').forEach(function(el) {
+            new bootstrap.Popover(el);
+        });
+    }
+});
+");
 echo html_writer::tag('textarea', s($question), [
     'name' => 'question',
     'id' => 'sqlchat-question',

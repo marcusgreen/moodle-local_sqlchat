@@ -58,4 +58,17 @@ if ($hassiteconfig) {
         'feedback',
         PARAM_ALPHANUMEXT
     ));
+
+    $settings->add(new admin_setting_configselect(
+        'local_sqlchat/backend',
+        get_string('settings:backend', 'local_sqlchat'),
+        get_string('settings:backend_desc', 'local_sqlchat'),
+        'core_ai_subsystem',
+        [
+            'core_ai_subsystem' => get_string('settings:backend_core', 'local_sqlchat'),
+            'local_ai_manager'  => get_string('settings:backend_local', 'local_sqlchat'),
+            'tool_aimanager'    => get_string('settings:backend_tool', 'local_sqlchat'),
+        ]
+    ));
+
 }

@@ -35,10 +35,25 @@ $string['settings:timeoutsec_desc'] = 'Statement timeout enforced on the read-on
 $string['settings:purpose'] = 'AI bridge purpose';
 $string['settings:purpose_desc'] = 'Routing tag passed to tool_ai_bridge::perform_request().';
 
+$string['settings:backend'] = 'AI backend';
+$string['settings:backend_desc'] = 'Which AI subsystem to use for SQL generation.';
+$string['settings:backend_core'] = 'Moodle core AI subsystem (4.5+)';
+$string['settings:backend_local'] = 'local_ai_manager (MEBIS)';
+$string['settings:backend_tool'] = 'tool_aiconnect (AIConnect)';
+
 $string['cachedef_schema'] = 'Compressed Moodle schema cache';
 
 $string['form:question'] = 'Question';
 $string['form:question_help'] = 'Plain English description of the data you want.';
+$string['form:questionhelp'] = 'Help: view the Moodle ER diagram (opens in a new tab)';
+$string['form:helpsummary'] = 'How to write a good question';
+$string['form:helpintro'] = 'Describe the data you want in plain English. Be specific about which entities, time ranges and filters matter.';
+$string['form:helpexamples'] = 'Examples:';
+$string['form:helpexample1'] = 'List the 10 most recently enrolled students in the course with shortname "CS101", showing their full name and enrolment date.';
+$string['form:helpexample2'] = 'Count how many users logged in during the last 7 days, grouped by day.';
+$string['form:helpexample3'] = 'Show all quiz attempts by user "jdoe" that scored below 50%, including quiz name and attempt date.';
+$string['form:helptips'] = 'Name the tables/entities you care about (users, courses, enrolments, quiz attempts, logs). Mention timeframes ("last 30 days"), filters ("only active users"), and the columns you want back. Avoid vague terms like "stuff" or "things".';
+$string['form:helpmore'] = 'More prompting guidance';
 $string['form:submit'] = 'Generate SQL';
 $string['form:execute'] = 'Run SQL';
 

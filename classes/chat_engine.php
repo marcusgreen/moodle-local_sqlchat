@@ -45,7 +45,8 @@ class chat_engine {
             $prompt = $this->build_prompt($schema, $question);
 
             $contextid = $contextid ?? \context_system::instance()->id;
-            $bridge = new \tool_ai_bridge\ai_bridge($contextid);
+            $backend = (string) (get_config('local_sqlchat', 'backend') ?: 'core_ai_subsystem');
+            $bridge = new \tool_ai_bridge\ai_bridge($contextid, $backend);
             $purpose = (string) (get_config('local_sqlchat', 'purpose') ?: 'feedback');
             $raw = $bridge->perform_request($prompt, $purpose);
 
