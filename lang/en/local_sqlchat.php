@@ -67,6 +67,7 @@ $string['error:blockedkeyword'] = 'Blocked SQL keyword: {$a}';
 $string['error:nosemicolons'] = 'Stacked statements are not permitted.';
 $string['error:llmempty'] = 'LLM returned no SQL.';
 $string['error:execfailed'] = 'Query execution failed: {$a}';
+$string['error:dialectmismatch'] = 'SQL contains syntax incompatible with {$a->dialect}. Suggestions: {$a->suggestions}';
 
 $string['privacy:metadata'] = 'local_sqlchat logs the question, generated SQL, and execution metadata for each query made by a user.';
 $string['privacy:metadata:log:userid'] = 'The user who made the query.';

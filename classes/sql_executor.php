@@ -37,6 +37,8 @@ class sql_executor {
         $maxrows = (int) (get_config('local_sqlchat', 'maxrows') ?: 1000);
         $timeoutsec = (int) (get_config('local_sqlchat', 'timeoutsec') ?: 5);
 
+        (new dialect_checker())->check($sql);
+
         $db = $this->get_connection();
         $sql = $this->apply_prefix($sql, $db);
         $sql = $this->ensure_limit($sql, $maxrows);
