@@ -36,6 +36,7 @@ class dialect_checker {
         '/\bTO_DATE\s*\(/i'                      => 'STR_TO_DATE()',
         '/\bGENERATE_SERIES\s*\(/i'             => '(no direct equivalent; use a numbers table)',
         '/EXTRACT\s*\(\s*EPOCH\s+FROM/i'        => 'UNIX_TIMESTAMP()',
+        '/\bDATE_TRUNC\s*\(/i'                  => "DATE_FORMAT() (e.g. DATE_FORMAT(col, '%Y-%m-01') to truncate to month)",
         '/\bRETURNING\b/i'                       => '(not supported; use LAST_INSERT_ID())',
         '/\bSTRING_AGG\s*\(/i'                  => 'GROUP_CONCAT()',
         '/\bARRAY_AGG\s*\(/i'                   => '(no direct equivalent)',
