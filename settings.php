@@ -71,4 +71,15 @@ if ($hassiteconfig) {
         ]
     ));
 
+    $settings->add(new admin_setting_configselect(
+        'local_sqlchat/retrieval',
+        get_string('settings:retrieval', 'local_sqlchat'),
+        get_string('settings:retrieval_desc', 'local_sqlchat'),
+        'full',
+        [
+            'full' => get_string('settings:retrieval_full', 'local_sqlchat'),
+            'bm25' => get_string('settings:retrieval_bm25', 'local_sqlchat'),
+        ]
+    ));
+
 }

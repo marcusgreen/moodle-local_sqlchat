@@ -40,7 +40,12 @@ class chat_engine {
         $raw = '';
         try {
             $compressor = new schema_compressor();
-            $schema = $compressor->get_compact();
+            $mode = (string) (get_config('local_sqlchat', 'retrieval') ?: 'full');
+            if ($mode === 'bm25') {
+                $schema = (new bm25_retriever($compressor))->retrieve($question);
+            } else {
+                $schema = $compressor->get_compact();
+            }
 
             $prompt = $this->build_prompt($schema, $question);
 

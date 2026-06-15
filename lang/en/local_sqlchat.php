@@ -41,6 +41,11 @@ $string['settings:backend_core'] = 'Moodle core AI subsystem (4.5+)';
 $string['settings:backend_local'] = 'local_ai_manager (MEBIS)';
 $string['settings:backend_tool'] = 'tool_aiconnect (AIConnect)';
 
+$string['settings:retrieval'] = 'Schema retrieval mode';
+$string['settings:retrieval_desc'] = 'How much of the Moodle schema is sent to the LLM. "Full" sends every table (most accurate, most tokens). "BM25" sends only the tables most relevant to the question (far fewer tokens, may miss a table on unusual phrasing).';
+$string['settings:retrieval_full'] = 'Full schema (send every table)';
+$string['settings:retrieval_bm25'] = 'BM25 retrieval (send relevant tables only)';
+
 $string['cachedef_schema'] = 'Compressed Moodle schema cache';
 
 $string['form:question'] = 'Question';
