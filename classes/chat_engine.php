@@ -133,6 +133,16 @@ PROMPT;
         if (preg_match('/((?:WITH|SELECT)\b.*)/is', $raw, $m)) {
             $raw = trim($m[1]);
         }
-        return rtrim($raw, "; \t\n\r");
+        $raw = rtrim($raw, "; \t\n\r");
+
+        // The prompt asks for bare, unprefixed table names but LLMs often quote identifiers
+        // (`user`, "user"). Downstream the runtime brace-wraps bare names, so quoting breaks it.
+        // Backticks only ever quote identifiers, so drop them all. Double quotes can be string
+        // literals in MySQL mode, so only unwrap those that wrap a plain identifier token
+        // (word chars and dots, no spaces) — real string literals use single quotes.
+        $raw = str_replace('`', '', $raw);
+        $raw = preg_replace('/"([A-Za-z_][A-Za-z0-9_.]*)"/', '$1', $raw) ?? $raw;
+
+        return $raw;
     }
 }
