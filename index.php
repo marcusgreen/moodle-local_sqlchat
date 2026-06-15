@@ -106,6 +106,10 @@ echo html_writer::empty_tag('input', [
 echo html_writer::tag('button', get_string('form:submit', 'local_sqlchat'), [
     'type' => 'submit', 'class' => 'btn btn-primary',
 ]);
+echo ' ';
+echo html_writer::link($PAGE->url->out(false), get_string('form:clear', 'local_sqlchat'), [
+    'class' => 'btn btn-secondary',
+]);
 echo html_writer::end_tag('form');
 
 if ($action === 'generate' && $question !== '') {

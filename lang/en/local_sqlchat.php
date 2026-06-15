@@ -60,6 +60,7 @@ $string['form:helpexample3'] = 'Show all quiz attempts by user "jdoe" that score
 $string['form:helptips'] = 'Name the tables/entities you care about (users, courses, enrolments, quiz attempts, logs). Mention timeframes ("last 30 days"), filters ("only active users"), and the columns you want back. Avoid vague terms like "stuff" or "things".';
 $string['form:helpmore'] = 'More prompting guidance';
 $string['form:submit'] = 'Generate SQL';
+$string['form:clear'] = 'Clear';
 $string['form:execute'] = 'Run SQL';
 
 $string['result:sql'] = 'Generated SQL';
