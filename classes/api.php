@@ -65,6 +65,7 @@ class api {
      * @return array
      */
     public static function execute(string $sql, int $logid = 0): array {
+        $sql = (new adhoc_placeholder_processor())->process($sql);
         self::validate($sql);
         $audit = new audit_log();
         try {

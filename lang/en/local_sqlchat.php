@@ -67,6 +67,9 @@ $string['result:rows'] = 'Rows returned: {$a}';
 $string['result:tokens'] = 'Tokens used: {$a}';
 $string['result:latency'] = 'Latency: {$a} ms';
 
+$string['error:adhoc_learnmore'] = 'Learn more about ad-hoc query syntax';
+$string['error:unknownplaceholders'] = 'This SQL contains ad-hoc report tokens that could not be resolved: {$a}. Replace them with literal values before running. <a href="https://docs.moodle.org/502/en/Custom_SQL_queries_report" target="_blank" rel="noopener">Learn more about ad-hoc query syntax</a>.';
+$string['error:namedparams'] = 'This SQL uses ad-hoc report named parameters that require manual substitution: {$a}. Replace each :param_name placeholder with the value you want to filter by, then run the query again. <a href="https://docs.moodle.org/502/en/Custom_SQL_queries_report" target="_blank" rel="noopener">Learn more about ad-hoc query syntax</a>.';
 $string['error:onlyselect'] = 'Only SELECT statements are permitted.';
 $string['error:blockedkeyword'] = 'Blocked SQL keyword: {$a}';
 $string['error:nosemicolons'] = 'Stacked statements are not permitted.';
