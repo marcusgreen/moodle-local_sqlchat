@@ -42,9 +42,11 @@ $string['settings:backend_local'] = 'local_ai_manager (MEBIS)';
 $string['settings:backend_tool'] = 'tool_aiconnect (AIConnect)';
 
 $string['settings:retrieval'] = 'Schema retrieval mode';
-$string['settings:retrieval_desc'] = 'How much of the Moodle schema is sent to the LLM. "Full" sends every table (most accurate, most tokens). "BM25" sends only the tables most relevant to the question (far fewer tokens, may miss a table on unusual phrasing).';
-$string['settings:retrieval_full'] = 'Full schema (send every table)';
-$string['settings:retrieval_bm25'] = 'BM25 retrieval (send relevant tables only)';
+$string['settings:retrieval_desc'] = 'How the Moodle schema is sent to the LLM. "Full" sends every table as a compact one-line summary (most accurate, most tokens). "BM25" sends only the compact lines for tables relevant to the question (far fewer tokens, may miss a table on unusual phrasing). The "DDL" modes send full CREATE TABLE statements instead — exact column types, lengths and foreign keys, at the cost of many more tokens: "Full DDL" for every table, "BM25 DDL" for the relevant tables only.';
+$string['settings:retrieval_full'] = 'Full schema (compact, every table)';
+$string['settings:retrieval_bm25'] = 'BM25 retrieval (compact, relevant tables only)';
+$string['settings:retrieval_ddl'] = 'Full DDL (CREATE TABLE for every table)';
+$string['settings:retrieval_ddl_bm25'] = 'BM25 DDL (CREATE TABLE for relevant tables only)';
 
 $string['settings:showprompt'] = 'Show the prompt sent to the LLM';
 $string['settings:showprompt_desc'] = 'When enabled, the full prompt sent to the language model (including the compressed schema) is displayed beneath the generated SQL, so it can be copied and reused on a different model. Exposes schema details — keep off on production sites where non-admins can reach this page.';

@@ -41,13 +41,9 @@ class chat_engine {
         try {
             $compressor = new schema_compressor();
             $mode = (string) (get_config('local_sqlchat', 'retrieval') ?: 'full');
-            if ($mode === 'bm25') {
-                $schema = (new bm25_retriever($compressor))->retrieve($question);
-            } else {
-                $schema = $compressor->get_compact();
-            }
+            [$schema, $isddl] = $this->retrieve_schema($compressor, $mode, $question);
 
-            $prompt = $this->build_prompt($schema, $question);
+            $prompt = $this->build_prompt($schema, $question, $isddl);
 
             $contextid = $contextid ?? \context_system::instance()->id;
             $backend = (string) (get_config('local_sqlchat', 'backend') ?: 'core_ai_subsystem');
@@ -81,13 +77,43 @@ class chat_engine {
     }
 
     /**
+     * Resolve the schema text to embed in the prompt for the configured retrieval mode.
+     *
+     * Modes:
+     *  - full      Compact one-line-per-table schema for every table.
+     *  - bm25      Compact schema reduced to the tables relevant to the question.
+     *  - ddl       CREATE TABLE DDL for every table.
+     *  - ddl_bm25  CREATE TABLE DDL for the BM25-relevant tables only.
+     *
+     * @param schema_compressor $compressor
+     * @param string $mode Configured retrieval mode.
+     * @param string $question Natural-language question (used by the BM25 modes).
+     * @return array{0: string, 1: bool} The schema text and whether it is DDL (drives the legend).
+     */
+    private function retrieve_schema(schema_compressor $compressor, string $mode, string $question): array {
+        switch ($mode) {
+            case 'bm25':
+                return [(new bm25_retriever($compressor))->retrieve($question), false];
+            case 'ddl':
+                return [$compressor->get_ddl(), true];
+            case 'ddl_bm25':
+                $names = (new bm25_retriever($compressor))->retrieve_tables($question);
+                return [$compressor->get_ddl($names ?: null), true];
+            case 'full':
+            default:
+                return [$compressor->get_compact(), false];
+        }
+    }
+
+    /**
      * Build the prompt sent to the LLM.
      *
-     * @param string $schema Compressed schema text.
+     * @param string $schema Schema text (compact one-liners or CREATE TABLE DDL).
      * @param string $question The user's question.
+     * @param bool $isddl Whether $schema is CREATE TABLE DDL rather than the compact format.
      * @return string
      */
-    private function build_prompt(string $schema, string $question): string {
+    private function build_prompt(string $schema, string $question, bool $isddl = false): string {
         global $CFG;
         $dialect = match ($CFG->dbtype ?? 'mariadb') {
             'pgsql' => 'PostgreSQL',
@@ -95,6 +121,10 @@ class chat_engine {
             'oci' => 'Oracle',
             default => 'MariaDB/MySQL',
         };
+
+        $schemalegend = $isddl
+            ? 'Schema (CREATE TABLE statements; table/reference names are unprefixed):'
+            : 'Schema (table(col1, col2 PK, fkcol→reftable, ...)):';
 
         return <<<PROMPT
 You are a Moodle SQL generator. Output ONLY a single SELECT statement.
@@ -111,7 +141,7 @@ Rules:
   user_password_history.*, oauth2_*.client_secret,
   config.value where name LIKE '%key%' OR '%secret%'.
 
-Schema (table(col1, col2 PK, fkcol→reftable, ...)):
+{$schemalegend}
 {$schema}
 
 Question: {$question}

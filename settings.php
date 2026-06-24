@@ -79,6 +79,8 @@ if ($hassiteconfig) {
         [
             'full' => get_string('settings:retrieval_full', 'local_sqlchat'),
             'bm25' => get_string('settings:retrieval_bm25', 'local_sqlchat'),
+            'ddl' => get_string('settings:retrieval_ddl', 'local_sqlchat'),
+            'ddl_bm25' => get_string('settings:retrieval_ddl_bm25', 'local_sqlchat'),
         ]
     ));
 

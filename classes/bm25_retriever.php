@@ -159,23 +159,52 @@ class bm25_retriever {
      */
     public function retrieve(string $question): string {
         $full = $this->compressor->get_compact();
-        if (trim($full) === '') {
+        $names = $this->retrieve_tables($question);
+        if ($names === []) {
             return $full;
+        }
+        $docs = $this->parse($full);
+
+        // Emit in the original schema order for stable, readable prompts.
+        $lines = [];
+        foreach ($docs as $name => $doc) {
+            if (in_array($name, $names, true)) {
+                $lines[] = $doc['line'];
+            }
+        }
+        return $lines === [] ? $full : implode("\n", $lines);
+    }
+
+    /**
+     * Return the names of the tables relevant to $question, in original schema order.
+     *
+     * Shares the BM25 scoring with {@see retrieve()} but yields table names rather than rendered
+     * lines, so callers can pair the selection with a different renderer (e.g. CREATE TABLE DDL).
+     * Returns an empty array when the question cannot be narrowed (empty schema, no query terms,
+     * no positive scores) so callers can fall back to the full schema.
+     *
+     * @param string $question Natural-language question.
+     * @return string[] Selected table names (empty = could not narrow; use the full schema).
+     */
+    public function retrieve_tables(string $question): array {
+        $full = $this->compressor->get_compact();
+        if (trim($full) === '') {
+            return [];
         }
 
         $docs = $this->parse($full);
         if ($docs === []) {
-            return $full;
+            return [];
         }
 
         $queryterms = $this->query_terms($question);
         if ($queryterms === []) {
-            return $full;
+            return [];
         }
 
         $scores = $this->score($docs, $queryterms);
         if ($scores === []) {
-            return $full;
+            return [];
         }
 
         arsort($scores);
@@ -185,14 +214,13 @@ class bm25_retriever {
         $this->add_anchors($docs, $selected);
         $this->expand_fks($docs, $selected);
 
-        // Emit in the original schema order for stable, readable prompts.
-        $lines = [];
+        $names = [];
         foreach ($docs as $name => $doc) {
             if (isset($selected[$name])) {
-                $lines[] = $doc['line'];
+                $names[] = $name;
             }
         }
-        return $lines === [] ? $full : implode("\n", $lines);
+        return $names;
     }
 
     /**
