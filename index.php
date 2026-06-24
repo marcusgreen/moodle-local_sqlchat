@@ -121,6 +121,10 @@ if ($action === 'generate' && $question !== '') {
         echo $OUTPUT->heading(get_string('result:sql', 'local_sqlchat'), 4);
         echo html_writer::tag('pre', s($result->sql), ['class' => 'bg-light p-2']);
         echo html_writer::tag('p', get_string('result:latency', 'local_sqlchat', $result->latency_ms));
+        if (get_config('local_sqlchat', 'showprompt') && $result->prompt !== '') {
+            echo $OUTPUT->heading(get_string('result:prompt', 'local_sqlchat'), 4);
+            echo html_writer::tag('pre', s($result->prompt), ['class' => 'bg-light p-2']);
+        }
     } catch (\Throwable $e) {
         echo $OUTPUT->notification($e->getMessage(), 'error');
     }

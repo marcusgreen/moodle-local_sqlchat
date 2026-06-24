@@ -73,6 +73,7 @@ class chat_engine {
         $result = new result();
         $result->sql = $sql;
         $result->raw_response = $raw;
+        $result->prompt = $prompt;
         $result->latency_ms = $latencyms;
         $result->tokens_used = 0;
         $result->logid = $logid;

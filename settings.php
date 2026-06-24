@@ -82,4 +82,11 @@ if ($hassiteconfig) {
         ]
     ));
 
+    $settings->add(new admin_setting_configcheckbox(
+        'local_sqlchat/showprompt',
+        get_string('settings:showprompt', 'local_sqlchat'),
+        get_string('settings:showprompt_desc', 'local_sqlchat'),
+        0
+    ));
+
 }

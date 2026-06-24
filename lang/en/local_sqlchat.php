@@ -46,6 +46,9 @@ $string['settings:retrieval_desc'] = 'How much of the Moodle schema is sent to t
 $string['settings:retrieval_full'] = 'Full schema (send every table)';
 $string['settings:retrieval_bm25'] = 'BM25 retrieval (send relevant tables only)';
 
+$string['settings:showprompt'] = 'Show the prompt sent to the LLM';
+$string['settings:showprompt_desc'] = 'When enabled, the full prompt sent to the language model (including the compressed schema) is displayed beneath the generated SQL, so it can be copied and reused on a different model. Exposes schema details — keep off on production sites where non-admins can reach this page.';
+
 $string['cachedef_schema'] = 'Compressed Moodle schema cache';
 
 $string['form:question'] = 'Question';
@@ -67,6 +70,7 @@ $string['result:sql'] = 'Generated SQL';
 $string['result:rows'] = 'Rows returned: {$a}';
 $string['result:tokens'] = 'Tokens used: {$a}';
 $string['result:latency'] = 'Latency: {$a} ms';
+$string['result:prompt'] = 'Prompt sent to the LLM';
 
 $string['error:adhoc_learnmore'] = 'Learn more about ad-hoc query syntax';
 $string['error:unknownplaceholders'] = 'This SQL contains ad-hoc report tokens that could not be resolved: {$a}. Replace them with literal values before running. <a href="https://docs.moodle.org/502/en/Custom_SQL_queries_report" target="_blank" rel="noopener">Learn more about ad-hoc query syntax</a>.';

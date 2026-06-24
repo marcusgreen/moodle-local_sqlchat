@@ -30,6 +30,9 @@ class result {
     /** @var string Raw LLM response (pre-cleaning). */
     public string $raw_response = '';
 
+    /** @var string The full prompt sent to the LLM (for debugging / reuse on other models). */
+    public string $prompt = '';
+
     /** @var int Total time spent generating, in milliseconds. */
     public int $latency_ms = 0;
 
