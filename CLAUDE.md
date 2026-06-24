@@ -37,9 +37,26 @@ Request flow (see README.md for ASCII diagram):
 
 2. **`api`** (static façade) — capability check (`local/sqlchat:use`), then delegates to `chat_engine` or `sql_executor`. Entry point for external callers such as `local_reportsources`.
 
-3. **`chat_engine`** — builds the LLM prompt (dialect-aware, unprefixed table names), calls `tool_ai_bridge\ai_bridge::perform_request()`, extracts SQL from raw response, runs `sql_validator`.
+3. **`chat_engine`** — picks the schema text for the configured **retrieval mode** (see below), builds the LLM prompt (dialect-aware, unprefixed table names, format-aware legend), calls `tool_ai_bridge\ai_bridge::perform_request()`, extracts SQL from raw response, runs `sql_validator`. Carries the built prompt back on `result->prompt`.
 
-4. **`schema_compressor`** — walks every `install.xml` (core + all plugins + subplugins) via `core_component`, infers FKs by convention, returns one-line-per-table compact text. Result cached in MUC (`local_sqlchat/schema`, key `compressed_v3`). Invalidate with `purge_caches.php`.
+4. **`schema_compressor`** — walks every `install.xml` (core + all plugins + subplugins) via `core_component`, infers FKs by convention. Two output formats:
+   - **Compact** (`get_compact()`) — one line per table, `table(col, col PK, fkcol→reftable, ...)`. Cached in MUC (`local_sqlchat/schema`, key `compressed_v3`).
+   - **DDL** (`get_ddl(?array $only)`) — `CREATE TABLE` statements with exact column types/lengths, `NOT NULL`, defaults, `AUTO_INCREMENT`, `PRIMARY KEY (id)`, inferred `REFERENCES`, and `UNIQUE(...)` from unique keys **and** unique indexes. Built as a per-table map cached under key `ddl_map_v2`; `$only` filters it to a table subset (empty subset falls back to full DDL).
+
+   Invalidate either with `purge_caches.php`.
+
+4b. **`bm25_retriever`** — reduces the schema to the tables relevant to the question via Okapi BM25 over the compact lines (synonym + anchor + FK expansion). `retrieve()` returns compact lines; `retrieve_tables()` returns the selected table-name list so the DDL path can pair the same selection with `get_ddl()`.
+
+### Retrieval modes (admin setting `local_sqlchat/retrieval`)
+
+| Mode | Schema sent | Tokens |
+|---|---|---|
+| `full` | compact, every table | high |
+| `bm25` | compact, relevant tables only | low |
+| `ddl` | CREATE TABLE DDL, every table | highest |
+| `ddl_bm25` | CREATE TABLE DDL, relevant tables only | medium |
+
+`chat_engine::retrieve_schema()` dispatches on the mode and returns `[schemaText, $isddl]`; `$isddl` switches the prompt's schema legend between the compact-format key and "CREATE TABLE statements".
 
 5. **`sql_validator`** — strips string literals and comments before keyword scan to avoid false positives; blocks DML/DDL, stacked statements, and data-exfil patterns.
 
@@ -47,14 +64,14 @@ Request flow (see README.md for ASCII diagram):
 
 7. **`audit_log`** — two-phase: `record_generation` inserts a row, `record_execution` updates it with row count / error. `logid` threads between both.
 
-8. **`result`** — plain DTO: `sql`, `raw_response`, `latency_ms`, `tokens_used`, `logid`.
+8. **`result`** — plain DTO: `sql`, `raw_response`, `prompt`, `latency_ms`, `tokens_used`, `logid`. `prompt` carries the exact text sent to the LLM (surfaced when `local_sqlchat/showprompt` is on, for reuse on another model).
 
 ## Key design constraints
 
 - **LLM outputs unprefixed table names.** `sql_executor::apply_prefix` adds `$CFG->prefix` at runtime. Never store or display prefixed SQL to users.
 - **`api::generate_sql` does not execute.** Callers own execution so they can use their own render path. `api::execute` re-validates before running.
 - **Backend is pluggable.** `tool_ai_bridge` abstracts `core_ai_subsystem`, `local_ai_manager`, and `tool_aimanager`. Backend selected by admin setting `local_sqlchat/backend`.
-- **Schema cache key is `compressed_v3`.** Bump the constant in `schema_compressor` if the output format changes incompatibly.
+- **Schema cache keys are `compressed_v3` (compact) and `ddl_map_v2` (DDL).** Bump the relevant constant in `schema_compressor` if that output format changes incompatibly.
 
 ## Settings
 
@@ -64,6 +81,8 @@ Request flow (see README.md for ASCII diagram):
 | `local_sqlchat/timeoutsec` | 5 | Per-session statement timeout |
 | `local_sqlchat/purpose` | `feedback` | Passed to `tool_ai_bridge` |
 | `local_sqlchat/backend` | `core_ai_subsystem` | AI backend selector |
+| `local_sqlchat/retrieval` | `full` | Schema retrieval mode: `full` / `bm25` / `ddl` / `ddl_bm25` (see Retrieval modes) |
+| `local_sqlchat/showprompt` | off | Render the prompt sent to the LLM beneath the generated SQL, for reuse on another model |
 | `$CFG->dbreadonly_user` / `dbreadonly_pass` | — | In `config.php`, not admin UI |
 
 ## Moodle conventions enforced here

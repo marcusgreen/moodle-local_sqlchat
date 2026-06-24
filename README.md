@@ -11,6 +11,7 @@ Alpha (MVP). Single page, no RAG, full compressed schema sent each call.
 
 ```
 question  →  schema_compressor (walks every install.xml; MUC cached)
+             [retrieval mode: full | bm25 | ddl | ddl_bm25]
           →  chat_engine builds prompt (dialect-aware, unprefixed names)
           →  tool_ai_bridge\ai_bridge::perform_request($prompt, $purpose)
           →  sql_validator (SELECT-only, no stacked statements)
@@ -36,6 +37,9 @@ audit_log records every generation and execution outcome.
 | `maxrows` | 1000 | Cap injected as `LIMIT` when none present. |
 | `timeoutsec` | 5 | Per-session statement timeout (PG / MariaDB / MySQL). |
 | `purpose` | `feedback` | `purpose` string passed to `tool_ai_bridge`. |
+| `backend` | `core_ai_subsystem` | AI backend selector. |
+| `retrieval` | `full` | Schema sent to the LLM: `full` / `bm25` (compact one-liners, all vs relevant tables) or `ddl` / `ddl_bm25` (CREATE TABLE statements with types, FKs and unique keys, all vs relevant tables). DDL costs more tokens but gives the model exact column types. |
+| `showprompt` | off | Show the prompt sent to the LLM beneath the generated SQL, for reuse on another model. |
 
 Read-only DB credentials live in `config.php`, not the admin UI:
 `$CFG->dbreadonly_user` and `$CFG->dbreadonly_pass`. Without them the
@@ -47,7 +51,7 @@ default `$DB` connection is used.
 use local_sqlchat\api;
 
 $result = api::generate_sql('Show me users with no logins in 90 days');
-// $result->sql, ->raw_response, ->latency_ms, ->tokens_used, ->logid
+// $result->sql, ->raw_response, ->prompt, ->latency_ms, ->tokens_used, ->logid
 
 api::validate($somesql);          // throws if not a single safe SELECT
 $rows = api::execute($somesql, $result->logid); // logid optional
@@ -81,7 +85,7 @@ log row.
 
 ## Phase 2
 
-- BM25 / embedding retrieval (drop full-schema send).
+- ~~BM25 retrieval (drop full-schema send).~~ Done — see the `retrieval` setting (`bm25`, `ddl_bm25`). Embedding-based retrieval still open.
 - Self-correction loop on EXPLAIN error.
 - AJAX modal for `local_reportsources` integration.
 - Token telemetry, per-user quotas.
