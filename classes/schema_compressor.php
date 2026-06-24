@@ -29,6 +29,9 @@ class schema_compressor {
     /** Cache key for the compressed schema. */
     private const CACHE_KEY = 'compressed_v3';
 
+    /** Cache key for the per-table DDL map. */
+    private const DDL_CACHE_KEY = 'ddl_map_v2';
+
     /**
      * Common Moodle-convention column → table mappings that aren't covered by the
      * automatic `<col>` / `<col>id` matching rules. Only safe, unambiguous entries.
@@ -73,6 +76,171 @@ class schema_compressor {
     }
 
     /**
+     * Return CREATE TABLE DDL for the schema, optionally restricted to a subset of tables.
+     *
+     * Renders dialect-neutral `CREATE TABLE` statements (one per table) from the same install.xml
+     * walk as {@see get_compact()}, giving the LLM exact column types/lengths/nullability and
+     * inferred foreign keys (as `REFERENCES`) instead of the terse one-line summary. Table and
+     * reference names are left UNPREFIXED to match the prompt's "use unprefixed names" rule.
+     *
+     * @param string[]|null $only Lower-case table names to include; null/empty means all tables.
+     * @param bool $forcerefresh Skip the cache and rebuild the DDL map.
+     * @return string Newline-joined CREATE TABLE statements.
+     */
+    public function get_ddl(?array $only = null, bool $forcerefresh = false): string {
+        $map = $this->get_ddl_map($forcerefresh);
+        if ($map === []) {
+            return '';
+        }
+        if ($only) {
+            $wanted = array_flip($only);
+            $map = array_intersect_key($map, $wanted);
+            if ($map === []) {
+                // The requested subset matched nothing — fall back to the full DDL rather than
+                // sending the model an empty schema.
+                $map = $this->get_ddl_map($forcerefresh);
+            }
+        }
+        return implode("\n\n", $map);
+    }
+
+    /**
+     * Build (and cache) a map of `tablename => "CREATE TABLE ... ;"`.
+     *
+     * @param bool $forcerefresh Skip the cache and rebuild.
+     * @return array<string, string>
+     */
+    public function get_ddl_map(bool $forcerefresh = false): array {
+        $cache = \cache::make('local_sqlchat', 'schema');
+        if (!$forcerefresh) {
+            $hit = $cache->get(self::DDL_CACHE_KEY);
+            if ($hit !== false) {
+                return $hit;
+            }
+        }
+        $map = $this->build_ddl_map();
+        $cache->set(self::DDL_CACHE_KEY, $map);
+        return $map;
+    }
+
+    /**
+     * Walk every install.xml across core + plugins and render each table as a CREATE TABLE
+     * statement keyed by table name.
+     *
+     * @return array<string, string>
+     */
+    private function build_ddl_map(): array {
+        $this->require_xmldb();
+
+        $collected = $this->collect_tables();
+        if ($collected === []) {
+            return [];
+        }
+        $nameset = array_flip(array_keys($collected));
+
+        $map = [];
+        foreach ($collected as $name => $info) {
+            $map[$name] = $this->render_table_ddl($name, $info, $nameset);
+        }
+        return $map;
+    }
+
+    /**
+     * Render one collected table as a dialect-neutral CREATE TABLE statement. Declared FKs are
+     * emitted as inline `REFERENCES`, with convention-based inference filling the gaps (mirroring
+     * the compact renderer's `→` arrows).
+     *
+     * @param string $tablename
+     * @param array{fields: array<int, array<string, mixed>>, fks: array<string, string>} $info
+     * @param array<string, int> $nameset Flipped table-name lookup.
+     * @return string
+     */
+    private function render_table_ddl(string $tablename, array $info, array $nameset): string {
+        $lines = [];
+        foreach ($info['fields'] as $field) {
+            $colname = $field['name'];
+            $parts = [$colname, $this->sql_type($field)];
+            if (!empty($field['notnull'])) {
+                $parts[] = 'NOT NULL';
+            }
+            if (!empty($field['sequence'])) {
+                $parts[] = 'AUTO_INCREMENT';
+            } else if (($field['default'] ?? null) !== null && $field['default'] !== '') {
+                $parts[] = 'DEFAULT ' . $this->sql_default($field);
+            }
+            $ref = $info['fks'][$colname] ?? null;
+            if ($ref === null && !empty($field['isint'])) {
+                $ref = $this->infer_fk($colname, $tablename, $nameset);
+            }
+            if ($ref !== null) {
+                $parts[] = 'REFERENCES ' . $ref . '(id)';
+            }
+            $lines[] = '  ' . implode(' ', $parts);
+        }
+        // The id sequence column is the primary key by Moodle convention.
+        if (isset($nameset[$tablename])) {
+            $lines[] = '  PRIMARY KEY (id)';
+        }
+        // Unique keys — convey cardinality and natural join keys to the model.
+        foreach ($info['uniques'] ?? [] as $ufields) {
+            if ($ufields) {
+                $lines[] = '  UNIQUE (' . implode(', ', $ufields) . ')';
+            }
+        }
+        return "CREATE TABLE {$tablename} (\n" . implode(",\n", $lines) . "\n);";
+    }
+
+    /**
+     * Map an XMLDB field to a generic SQL column type. Kept dialect-neutral — the goal is to give
+     * the LLM accurate types, not produce DDL executable on one specific database.
+     *
+     * @param array<string, mixed> $field
+     * @return string
+     */
+    private function sql_type(array $field): string {
+        $length = (string) ($field['length'] ?? '');
+        $decimals = (string) ($field['decimals'] ?? '');
+        switch ($field['type'] ?? null) {
+            case XMLDB_TYPE_INTEGER:
+                return $length !== '' ? "INT({$length})" : 'INT';
+            case XMLDB_TYPE_NUMBER:
+                return $decimals !== '' ? "DECIMAL({$length},{$decimals})"
+                    : ($length !== '' ? "DECIMAL({$length})" : 'DECIMAL');
+            case XMLDB_TYPE_FLOAT:
+                return 'FLOAT';
+            case XMLDB_TYPE_CHAR:
+                return $length !== '' ? "VARCHAR({$length})" : 'VARCHAR(255)';
+            case XMLDB_TYPE_TEXT:
+                return 'TEXT';
+            case XMLDB_TYPE_BINARY:
+                return 'BLOB';
+            case XMLDB_TYPE_TIMESTAMP:
+                return 'TIMESTAMP';
+            case XMLDB_TYPE_DATETIME:
+                return 'DATETIME';
+            default:
+                return 'TEXT';
+        }
+    }
+
+    /**
+     * Render a column default as a SQL literal — quoted for non-numeric types.
+     *
+     * @param array<string, mixed> $field
+     * @return string
+     */
+    private function sql_default(array $field): string {
+        $default = (string) $field['default'];
+        $numeric = in_array($field['type'] ?? null, [
+            XMLDB_TYPE_INTEGER, XMLDB_TYPE_NUMBER, XMLDB_TYPE_FLOAT,
+        ], true);
+        if ($numeric && is_numeric($default)) {
+            return $default;
+        }
+        return "'" . str_replace("'", "''", $default) . "'";
+    }
+
+    /**
      * Walk every install.xml across core + plugins and return compressed text,
      * one table per line. Convention-based FK inference fills gaps where
      * install.xml omits explicit `<KEY TYPE="foreign">` declarations.
@@ -101,9 +269,9 @@ class schema_compressor {
 
     /**
      * Walk install.xml files and return a map of
-     * `tablename => ['fields' => [['name'=>..,'pk'=>bool], ...], 'fks' => [col=>ref]]`.
+     * `tablename => ['fields' => [['name'=>..,'pk'=>bool], ...], 'fks' => [col=>ref], 'uniques' => [[col,..],..]]`.
      *
-     * @return array<string, array{fields: array<int, array{name: string, pk: bool}>, fks: array<string, string>}>
+     * @return array<string, array{fields: array<int, array{name: string, pk: bool}>, fks: array<string, string>, uniques: array<int, string[]>}>
      */
     private function collect_tables(): array {
         $tables = [];
@@ -121,17 +289,35 @@ class schema_compressor {
                         continue;
                     }
                     $fks = [];
+                    $uniques = [];
                     foreach ($table->getKeys() as $key) {
-                        if ($key->getType() !== XMLDB_KEY_FOREIGN
-                            && $key->getType() !== XMLDB_KEY_FOREIGN_UNIQUE) {
-                            continue;
+                        $type = $key->getType();
+                        if ($type === XMLDB_KEY_FOREIGN || $type === XMLDB_KEY_FOREIGN_UNIQUE) {
+                            $fields = $key->getFields();
+                            $reftable = $key->getRefTable();
+                            if ($fields && $reftable) {
+                                $fks[$fields[0]] = $reftable;
+                            }
                         }
-                        $fields = $key->getFields();
-                        $reftable = $key->getRefTable();
-                        if (!$fields || !$reftable) {
-                            continue;
+                        // Unique keys give the DDL renderer cardinality hints (e.g. UNIQUE(courseid,
+                        // userid) marks a 1:1 relationship and its natural join key). A foreign-unique
+                        // key is also a uniqueness constraint, so capture its columns too.
+                        if ($type === XMLDB_KEY_UNIQUE || $type === XMLDB_KEY_FOREIGN_UNIQUE) {
+                            $ufields = $key->getFields();
+                            if ($ufields) {
+                                $uniques[] = $ufields;
+                            }
                         }
-                        $fks[$fields[0]] = $reftable;
+                    }
+                    // Moodle usually expresses uniqueness as a unique INDEX rather than a unique
+                    // KEY (e.g. user_preferences' UNIQUE(userid, name)), so scan indexes too.
+                    foreach ($table->getIndexes() as $index) {
+                        if ($index->getUnique()) {
+                            $ifields = $index->getFields();
+                            if ($ifields) {
+                                $uniques[] = $ifields;
+                            }
+                        }
                     }
                     $fields = [];
                     foreach ($table->getFields() as $field) {
@@ -143,12 +329,20 @@ class schema_compressor {
                             'name' => $colname,
                             'pk' => (bool) $field->getSequence(),
                             'isint' => $field->getType() === XMLDB_TYPE_INTEGER,
+                            // Captured for the DDL renderer (see get_ddl()); the compact
+                            // renderer ignores these.
+                            'type' => $field->getType(),
+                            'length' => $field->getLength(),
+                            'decimals' => $field->getDecimals(),
+                            'notnull' => (bool) $field->getNotNull(),
+                            'default' => $field->getDefault(),
+                            'sequence' => (bool) $field->getSequence(),
                         ];
                     }
                     if ($fields === []) {
                         continue;
                     }
-                    $tables[$name] = ['fields' => $fields, 'fks' => $fks];
+                    $tables[$name] = ['fields' => $fields, 'fks' => $fks, 'uniques' => $uniques];
                 }
             } catch (\Throwable $e) {
                 debugging(
