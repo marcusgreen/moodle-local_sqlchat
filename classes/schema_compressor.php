@@ -33,6 +33,16 @@ class schema_compressor {
     private const DDL_CACHE_KEY = 'ddl_map_v2';
 
     /**
+     * Table names excluded from the schema sent to the LLM. The legacy core `log`
+     * table is dropped so the model never targets it.
+     *
+     * @var string[]
+     */
+    private const EXCLUDED_TABLES = [
+        'log',
+    ];
+
+    /**
      * Common Moodle-convention column → table mappings that aren't covered by the
      * automatic `<col>` / `<col>id` matching rules. Only safe, unambiguous entries.
      *
@@ -285,7 +295,8 @@ class schema_compressor {
                 }
                 foreach ($structure->getTables() as $table) {
                     $name = $table->getName();
-                    if ($name === '' || isset($tables[$name])) {
+                    if ($name === '' || isset($tables[$name])
+                            || in_array($name, self::EXCLUDED_TABLES, true)) {
                         continue;
                     }
                     $fks = [];
