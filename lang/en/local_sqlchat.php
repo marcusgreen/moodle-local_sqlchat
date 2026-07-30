@@ -51,6 +51,9 @@ $string['settings:retrieval_ddl_bm25'] = 'BM25 DDL (CREATE TABLE for relevant ta
 $string['settings:showprompt'] = 'Show the prompt sent to the LLM';
 $string['settings:showprompt_desc'] = 'When enabled, the full prompt sent to the language model (including the compressed schema) is displayed beneath the generated SQL, so it can be copied and reused on a different model. Exposes schema details — keep off on production sites where non-admins can reach this page.';
 
+$string['settings:promptextra'] = 'Additional prompt text';
+$string['settings:promptextra_desc'] = 'Extra instructions appended to the prompt sent to the language model, after the schema and before the question. Use for site-specific notes (table conventions, filters to always apply, preferred style). Cannot override the built-in safety rules (SELECT only, forbidden columns), which the SQL validator enforces regardless. Leave blank for the default prompt.';
+
 $string['cachedef_schema'] = 'Compressed Moodle schema cache';
 
 $string['form:question'] = 'Question';

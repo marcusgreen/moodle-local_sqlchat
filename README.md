@@ -40,6 +40,7 @@ audit_log records every generation and execution outcome.
 | `backend` | `core_ai_subsystem` | AI backend selector. |
 | `retrieval` | `full` | Schema sent to the LLM: `full` / `bm25` (compact one-liners, all vs relevant tables) or `ddl` / `ddl_bm25` (CREATE TABLE statements with types, FKs and unique keys, all vs relevant tables). DDL costs more tokens but gives the model exact column types. |
 | `showprompt` | off | Show the prompt sent to the LLM beneath the generated SQL, for reuse on another model. |
+| `promptextra` | empty | Extra text appended to the prompt after the schema and before the question (rendered as a `Site notes:` block when set). Use for site-specific hints — table conventions, filters to always apply, preferred style. Cannot override the built-in safety rules; `sql_validator` enforces those regardless. |
 
 Read-only DB credentials live in `config.php`, not the admin UI:
 `$CFG->dbreadonly_user` and `$CFG->dbreadonly_pass`. Without them the

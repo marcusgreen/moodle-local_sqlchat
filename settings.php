@@ -91,4 +91,12 @@ if ($hassiteconfig) {
         0
     ));
 
+    $settings->add(new admin_setting_configtextarea(
+        'local_sqlchat/promptextra',
+        get_string('settings:promptextra', 'local_sqlchat'),
+        get_string('settings:promptextra_desc', 'local_sqlchat'),
+        '',
+        PARAM_RAW
+    ));
+
 }

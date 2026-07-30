@@ -83,6 +83,7 @@ Request flow (see README.md for ASCII diagram):
 | `local_sqlchat/backend` | `core_ai_subsystem` | AI backend selector |
 | `local_sqlchat/retrieval` | `full` | Schema retrieval mode: `full` / `bm25` / `ddl` / `ddl_bm25` (see Retrieval modes) |
 | `local_sqlchat/showprompt` | off | Render the prompt sent to the LLM beneath the generated SQL, for reuse on another model |
+| `local_sqlchat/promptextra` | `''` | Extra text appended to the prompt after the schema, before the question (rendered as a `Site notes:` block when non-empty). Cannot override built-in safety rules |
 | `$CFG->dbreadonly_user` / `dbreadonly_pass` | — | In `config.php`, not admin UI |
 
 ## Moodle conventions enforced here

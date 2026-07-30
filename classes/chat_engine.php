@@ -126,6 +126,9 @@ class chat_engine {
             ? 'Schema (CREATE TABLE statements; table/reference names are unprefixed):'
             : 'Schema (table(col1, col2 PK, fkcol→reftable, ...)):';
 
+        $extra = trim((string) get_config('local_sqlchat', 'promptextra'));
+        $extrablock = $extra === '' ? '' : "\nSite notes:\n{$extra}\n";
+
         return <<<PROMPT
 You are a Moodle SQL generator. Output ONLY a single SELECT statement.
 No explanation. No markdown fences. No trailing semicolon.
@@ -143,7 +146,7 @@ Rules:
 
 {$schemalegend}
 {$schema}
-
+{$extrablock}
 Question: {$question}
 
 SQL:
