@@ -37,6 +37,8 @@ class sql_executor {
         $maxrows = (int) (get_config('local_sqlchat', 'maxrows') ?: 1000);
         $timeoutsec = (int) (get_config('local_sqlchat', 'timeoutsec') ?: 5);
 
+        $sql = $this->resolve_tokens($sql);
+
         (new dialect_checker())->check($sql);
 
         $db = $this->get_connection();
@@ -61,6 +63,34 @@ class sql_executor {
                 $e->getMessage()
             );
         }
+    }
+
+    /**
+     * Resolve local_reportsources display tokens the LLM may emit into runnable SQL.
+     *
+     * The prompt asks the model to wrap epoch date columns in %%TIMESTAMP(expr)%% so the
+     * SQL stays portable for local_reportsources. That token is not valid SQL, so before we
+     * execute in-plugin we rewrite it to a dialect epoch->datetime cast for readable output.
+     * An optional format argument (%%TIMESTAMP(expr, '%Y')%%) is dropped, matching reportsources.
+     *
+     * @param string $sql SQL possibly containing %%TIMESTAMP(...)%% tokens.
+     * @return string SQL with tokens rewritten for direct execution.
+     */
+    private function resolve_tokens(string $sql): string {
+        global $CFG;
+        $dbtype = (string) ($CFG->dbtype ?? 'mariadb');
+        return preg_replace_callback(
+            '/%%TIMESTAMP\(\s*([^,)]+?)\s*(?:,[^)]*)?\)%%/i',
+            static function ($m) use ($dbtype) {
+                $expr = trim($m[1]);
+                return match ($dbtype) {
+                    'pgsql' => "to_timestamp({$expr})",
+                    'mariadb', 'mysqli' => "FROM_UNIXTIME({$expr})",
+                    default => $expr,
+                };
+            },
+            $sql
+        ) ?? $sql;
     }
 
     /**

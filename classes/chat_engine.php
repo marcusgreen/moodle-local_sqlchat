@@ -140,6 +140,15 @@ Rules:
 - Never reference: user.password, user.secret, user.auth_*token,
   user_password_history.*, oauth2_*.client_secret,
   config.value where name LIKE '%key%' OR '%secret%'.
+- Date/time handling: Moodle stores dates as Unix-epoch INTEGER columns. A
+  column is a date column when it is an integer type AND its name contains one
+  of: time, date, created, modified, start, end, expir, due, login, logout,
+  access, seen, stamp, cron, sync, sent, finish, run. When you SELECT such a
+  column, wrap its source expression in the %%TIMESTAMP(...)%% token so it
+  renders as a formatted, sortable date — e.g. SELECT %%TIMESTAMP(u.timecreated)%%
+  AS timecreated, not SELECT u.timecreated. Do NOT wrap non-date integers
+  (ids, counts, durations such as enrolperiod). Use the raw column in WHERE,
+  ORDER BY, GROUP BY and joins — only the SELECT output expression is wrapped.
 
 {$schemalegend}
 {$schema}
