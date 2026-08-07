@@ -37,7 +37,7 @@ Request flow (see README.md for ASCII diagram):
 
 2. **`api`** (static façade) — capability check (`local/sqlchat:use`), then delegates to `chat_engine` or `sql_executor`. Entry point for external callers such as `local_reportsources`.
 
-3. **`chat_engine`** — picks the schema text for the configured **retrieval mode** (see below), builds the LLM prompt (dialect-aware, unprefixed table names, format-aware legend), calls `tool_ai_bridge\ai_bridge::perform_request()`, extracts SQL from raw response, runs `sql_validator`. Carries the built prompt back on `result->prompt`.
+3. **`chat_engine`** — picks the schema text for the configured **retrieval mode** (see below), builds the LLM prompt (dialect-aware, unprefixed table names, format-aware legend), calls `tool_ai_bridge\ai_bridge::perform_request()`, extracts SQL from raw response, runs `sql_validator`. Carries the built prompt back on `result->prompt`. The prompt also carries a **date-column rule** mirroring `local_reportsources`' detection (integer column whose name matches `time|date|created|modified|start|end|expir|due|login|logout|access|seen|stamp|cron|sync|sent|finish|run`): the LLM wraps such columns' SELECT output expression in the portable `%%TIMESTAMP(expr)%%` token (raw column left untouched in WHERE/ORDER BY/joins), so generated SQL is reusable as a `local_reportsources` source.
 
 4. **`schema_compressor`** — walks every `install.xml` (core + all plugins + subplugins) via `core_component`, infers FKs by convention. Two output formats:
    - **Compact** (`get_compact()`) — one line per table, `table(col, col PK, fkcol→reftable, ...)`. Cached in MUC (`local_sqlchat/schema`, key `compressed_v3`).
@@ -60,7 +60,7 @@ Request flow (see README.md for ASCII diagram):
 
 5. **`sql_validator`** — strips string literals and comments before keyword scan to avoid false positives; blocks DML/DDL, stacked statements, and data-exfil patterns.
 
-6. **`sql_executor`** — injects table prefix (longest-match regex substitution), appends `LIMIT` when absent, sets per-session statement timeout (PG: `statement_timeout`; MariaDB/MySQL: `max_statement_time`), uses read-only connection when `$CFG->dbreadonly_user`/`dbreadonly_pass` are set.
+6. **`sql_executor`** — resolves `%%TIMESTAMP(expr)%%` tokens for in-plugin execution (`resolve_tokens()`: PG → `to_timestamp(expr)`, MariaDB/MySQL → `FROM_UNIXTIME(expr)`, other → raw `expr`; optional format arg dropped, matching `local_reportsources`), injects table prefix (longest-match regex substitution), appends `LIMIT` when absent, sets per-session statement timeout (PG: `statement_timeout`; MariaDB/MySQL: `max_statement_time`), uses read-only connection when `$CFG->dbreadonly_user`/`dbreadonly_pass` are set. The token itself is not valid SQL — `sql_validator` passes it (no blocked keyword), and `resolve_tokens()` runs first in `run()` so the prefix/limit/dialect steps see clean SQL.
 
 7. **`audit_log`** — two-phase: `record_generation` inserts a row, `record_execution` updates it with row count / error. `logid` threads between both.
 
