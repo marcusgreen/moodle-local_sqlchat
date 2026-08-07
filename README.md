@@ -5,18 +5,21 @@ validated SELECT statement against the live Moodle DB schema.
 
 ## Status
 
-Alpha (MVP). Single page, no RAG, full compressed schema sent each call.
+Alpha (MVP). Single-page UI. Four schema retrieval modes (full / bm25 / ddl / ddl_bm25).
 
 ## Architecture
 
 ```
 question  →  schema_compressor (walks every install.xml; MUC cached)
              [retrieval mode: full | bm25 | ddl | ddl_bm25]
-          →  chat_engine builds prompt (dialect-aware, unprefixed names)
+          →  bm25_retriever narrows to relevant tables (bm25 / ddl_bm25 modes)
+          →  chat_engine builds prompt (dialect-aware, unprefixed names,
+                                        date cols wrapped in %%TIMESTAMP(expr)%%)
           →  tool_ai_bridge\ai_bridge::perform_request($prompt, $purpose)
           →  sql_validator (SELECT-only, no stacked statements)
-          →  api::execute  →  sql_executor (read-only conn optional,
-                              prefix injection, LIMIT, statement timeout)
+          →  api::execute  →  sql_executor (resolves %%TIMESTAMP%% tokens,
+                              read-only conn optional, prefix injection,
+                              LIMIT, statement timeout)
           →  result table
 audit_log records every generation and execution outcome.
 ```
@@ -28,7 +31,9 @@ audit_log records every generation and execution outcome.
 - No external schema file. `schema_compressor` discovers tables by
   parsing `lib/db/install.xml` plus every plugin and subplugin
   `db/install.xml` via `core_component`. Result is cached in MUC
-  (definition `schema` in `db/caches.php`, key `compressed_v3`).
+  (definition `schema` in `db/caches.php`): the compact schema under key
+  `compressed_v3`, the DDL map under key `ddl_map_v2`. The plugin's own
+  `local_sqlchat_log` table is excluded from the schema sent to the LLM.
 
 ## Settings (Site administration → Plugins → Local plugins)
 
@@ -63,6 +68,17 @@ applies the table prefix to unprefixed names, enforces `LIMIT`, sets the
 statement timeout, and records the execution outcome against the supplied
 log row.
 
+## Portable date tokens
+
+Generated SQL wraps date-like integer columns (name matches
+`time|date|created|modified|start|end|expir|due|login|logout|access|seen|stamp|cron|sync|sent|finish|run`)
+in the portable token `%%TIMESTAMP(expr)%%` — SELECT output only; the raw
+column is kept in `WHERE` / `ORDER BY` / joins. `sql_executor::resolve_tokens()`
+renders the token per dialect (PG → `to_timestamp`, MariaDB/MySQL →
+`FROM_UNIXTIME`, other → raw `expr`) before prefix/LIMIT/validation. The token
+mirrors `local_reportsources`, so generated SQL is reusable as a
+`local_reportsources` source.
+
 ## Security
 
 - `local/sqlchat:use` capability gates all entry points
@@ -82,11 +98,3 @@ log row.
   secret-like `config.value`).
 - Audit log table `local_sqlchat_log` records userid, question, SQL,
   success, error message, rows returned, tokens, latency, timestamp.
-
-## Phase 2
-
-- ~~BM25 retrieval (drop full-schema send).~~ Done — see the `retrieval` setting (`bm25`, `ddl_bm25`). Embedding-based retrieval still open.
-- Self-correction loop on EXPLAIN error.
-- AJAX modal for `local_reportsources` integration.
-- Token telemetry, per-user quotas.
-- Saved queries.
