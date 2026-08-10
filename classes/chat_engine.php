@@ -149,6 +149,15 @@ Rules:
   AS timecreated, not SELECT u.timecreated. Do NOT wrap non-date integers
   (ids, counts, durations such as enrolperiod). Use the raw column in WHERE,
   ORDER BY, GROUP BY and joins — only the SELECT output expression is wrapped.
+- Moodle relationships (use these join paths; do NOT invent columns):
+  - Enrolment: a user is enrolled in a course through user_enrolments, NOT
+    directly. Join user u -> user_enrolments ue ON ue.userid = u.id
+    -> enrol e ON e.id = ue.enrolid -> course c ON c.id = e.courseid.
+    The enrol table has NO userid column; never join user directly to enrol
+    or course.
+  - Roles: role_assignments (userid, roleid, contextid); the role name is in
+    role. A course-level assignment has a context row where contextlevel = 50
+    and instanceid = course.id.
 
 {$schemalegend}
 {$schema}
