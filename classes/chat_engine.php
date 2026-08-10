@@ -38,6 +38,7 @@ class chat_engine {
 
         $sql = null;
         $raw = '';
+        $ailatencyms = 0;
         try {
             $compressor = new schema_compressor();
             $mode = (string) (get_config('local_sqlchat', 'retrieval') ?: 'full');
@@ -49,7 +50,9 @@ class chat_engine {
             $backend = (string) (get_config('local_sqlchat', 'backend') ?: 'core_ai_subsystem');
             $bridge = new \tool_ai_bridge\ai_bridge($contextid, 'local_sqlchat', $backend);
             $purpose = (string) (get_config('local_sqlchat', 'purpose') ?: 'feedback');
+            $aistart = microtime(true);
             $raw = $bridge->perform_request($prompt, $purpose);
+            $ailatencyms = (int) round((microtime(true) - $aistart) * 1000);
 
             $sql = $this->extract_sql($raw);
             if ($sql === '') {
@@ -71,6 +74,7 @@ class chat_engine {
         $result->raw_response = $raw;
         $result->prompt = $prompt;
         $result->latency_ms = $latencyms;
+        $result->ai_latency_ms = $ailatencyms;
         $result->tokens_used = 0;
         $result->logid = $logid;
         return $result;

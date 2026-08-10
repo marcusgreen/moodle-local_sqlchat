@@ -121,9 +121,14 @@ if ($action === 'generate' && $question !== '') {
         echo $OUTPUT->heading(get_string('result:sql', 'local_sqlchat'), 4);
         echo html_writer::tag('pre', s($result->sql), ['class' => 'bg-light p-2']);
         echo html_writer::tag('p', get_string('result:latency', 'local_sqlchat', $result->latency_ms));
+        if (get_config('local_sqlchat', 'showprompt')) {
+            echo html_writer::tag('p', get_string('result:ailatency', 'local_sqlchat', number_format($result->ai_latency_ms / 1000, 2)));
+        }
         if (get_config('local_sqlchat', 'showprompt') && $result->prompt !== '') {
-            echo $OUTPUT->heading(get_string('result:prompt', 'local_sqlchat'), 4);
+            echo html_writer::start_tag('details', ['class' => 'mb-2']);
+            echo html_writer::tag('summary', get_string('result:prompt', 'local_sqlchat'));
             echo html_writer::tag('pre', s($result->prompt), ['class' => 'bg-light p-2']);
+            echo html_writer::end_tag('details');
         }
     } catch (\Throwable $e) {
         echo $OUTPUT->notification($e->getMessage(), 'error');

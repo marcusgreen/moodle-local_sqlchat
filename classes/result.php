@@ -36,6 +36,9 @@ class result {
     /** @var int Total time spent generating, in milliseconds. */
     public int $latency_ms = 0;
 
+    /** @var int Time spent waiting on the AI backend round-trip, in milliseconds. */
+    public int $ai_latency_ms = 0;
+
     /** @var int Token usage if reported by the backend; otherwise 0. */
     public int $tokens_used = 0;
 

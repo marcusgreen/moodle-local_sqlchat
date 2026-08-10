@@ -71,6 +71,7 @@ $string['form:execute'] = 'Run SQL';
 $string['result:sql'] = 'Generated SQL';
 $string['result:rows'] = 'Rows returned: {$a}';
 $string['result:tokens'] = 'Tokens used: {$a}';
+$string['result:ailatency'] = 'AI response time: {$a} s';
 $string['result:latency'] = 'Latency: {$a} ms';
 $string['result:prompt'] = 'Prompt sent to the LLM';
 
