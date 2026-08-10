@@ -27,10 +27,13 @@ namespace local_sqlchat;
 class schema_compressor {
 
     /** Cache key for the compressed schema. */
-    private const CACHE_KEY = 'compressed_v3';
+    private const CACHE_KEY = 'compressed_v4';
 
     /** Cache key for the per-table DDL map. */
-    private const DDL_CACHE_KEY = 'ddl_map_v2';
+    private const DDL_CACHE_KEY = 'ddl_map_v3';
+
+    /** Bundled curated implied-key map (generated from upstream morekeys.xml). */
+    private const IMPLIED_KEYS_FILE = __DIR__ . '/../db/implied_keys.php';
 
     /**
      * Table names excluded from the schema sent to the LLM. The legacy core `log`
@@ -74,15 +77,27 @@ class schema_compressor {
      */
     public function get_compact(bool $forcerefresh = false): string {
         $cache = \cache::make('local_sqlchat', 'schema');
+        $key = self::CACHE_KEY . self::cache_suffix();
         if (!$forcerefresh) {
-            $hit = $cache->get(self::CACHE_KEY);
+            $hit = $cache->get($key);
             if ($hit !== false) {
                 return $hit;
             }
         }
         $compact = $this->build();
-        $cache->set(self::CACHE_KEY, $compact);
+        $cache->set($key, $compact);
         return $compact;
+    }
+
+    /**
+     * Cache-key suffix that changes when the bundled implied-key file is refreshed, so a data update
+     * busts the compact/DDL caches without a manual purge or a constant bump.
+     *
+     * @return string
+     */
+    private static function cache_suffix(): string {
+        $mtime = is_readable(self::IMPLIED_KEYS_FILE) ? (int) filemtime(self::IMPLIED_KEYS_FILE) : 0;
+        return '_' . $mtime;
     }
 
     /**
@@ -122,14 +137,15 @@ class schema_compressor {
      */
     public function get_ddl_map(bool $forcerefresh = false): array {
         $cache = \cache::make('local_sqlchat', 'schema');
+        $key = self::DDL_CACHE_KEY . self::cache_suffix();
         if (!$forcerefresh) {
-            $hit = $cache->get(self::DDL_CACHE_KEY);
+            $hit = $cache->get($key);
             if ($hit !== false) {
                 return $hit;
             }
         }
         $map = $this->build_ddl_map();
-        $cache->set(self::DDL_CACHE_KEY, $map);
+        $cache->set($key, $map);
         return $map;
     }
 
@@ -183,7 +199,10 @@ class schema_compressor {
                 $ref = $this->infer_fk($colname, $tablename, $nameset);
             }
             if ($ref !== null) {
-                $parts[] = 'REFERENCES ' . $ref . '(id)';
+                // Curated/declared keys may reference a non-id column (e.g. block.name); inferred keys
+                // always target id.
+                $refcol = $info['refcols'][$colname] ?? 'id';
+                $parts[] = 'REFERENCES ' . $ref . '(' . $refcol . ')';
             }
             $lines[] = '  ' . implode(' ', $parts);
         }
@@ -300,6 +319,7 @@ class schema_compressor {
                         continue;
                     }
                     $fks = [];
+                    $refcols = [];
                     $uniques = [];
                     foreach ($table->getKeys() as $key) {
                         $type = $key->getType();
@@ -307,7 +327,9 @@ class schema_compressor {
                             $fields = $key->getFields();
                             $reftable = $key->getRefTable();
                             if ($fields && $reftable) {
+                                $reffields = $key->getRefFields();
                                 $fks[$fields[0]] = $reftable;
+                                $refcols[$fields[0]] = $reffields[0] ?? 'id';
                             }
                         }
                         // Unique keys give the DDL renderer cardinality hints (e.g. UNIQUE(courseid,
@@ -353,7 +375,21 @@ class schema_compressor {
                     if ($fields === []) {
                         continue;
                     }
-                    $tables[$name] = ['fields' => $fields, 'fks' => $fks, 'uniques' => $uniques];
+                    // Fill columns install.xml leaves undeclared with curated implied keys. Declared FKs
+                    // are authoritative, so only add where nothing was declared (declared > implied >
+                    // convention inference, which runs later in render).
+                    foreach (self::load_implied_keys()[$name] ?? [] as $col => $imp) {
+                        if (!isset($fks[$col])) {
+                            $fks[$col] = $imp['reftable'];
+                            $refcols[$col] = $imp['refcol'] ?? 'id';
+                        }
+                    }
+                    $tables[$name] = [
+                        'fields' => $fields,
+                        'fks' => $fks,
+                        'refcols' => $refcols,
+                        'uniques' => $uniques,
+                    ];
                 }
             } catch (\Throwable $e) {
                 debugging(
@@ -387,7 +423,9 @@ class schema_compressor {
                 $ref = $this->infer_fk($colname, $tablename, $nameset);
             }
             if ($ref !== null) {
-                $token .= '→' . $ref;
+                $refcol = $info['refcols'][$colname] ?? 'id';
+                // Spell out the target column only when it is not the conventional id.
+                $token .= '→' . $ref . ($refcol !== 'id' ? '.' . $refcol : '');
             }
             $cols[] = $token;
         }
@@ -496,6 +534,25 @@ class schema_compressor {
             }
         }
         return $found;
+    }
+
+    /**
+     * Load the bundled curated implied foreign-key map (Moodle relationships not declared in any
+     * install.xml). Generated from upstream morekeys.xml by codemods/xml_to_keys.php in the
+     * local_reportsources plugin; shape is [table => [col => [reftable, refcol]]].
+     *
+     * @return array<string, array<string, array{reftable: string, refcol: string}>>
+     */
+    private static function load_implied_keys(): array {
+        static $cache = null;
+        if ($cache !== null) {
+            return $cache;
+        }
+        if (!is_readable(self::IMPLIED_KEYS_FILE)) {
+            return $cache = [];
+        }
+        $data = require self::IMPLIED_KEYS_FILE;
+        return $cache = is_array($data) ? $data : [];
     }
 
     /**
