@@ -74,6 +74,8 @@ $string['result:tokens'] = 'Tokens used: {$a}';
 $string['result:ailatency'] = 'AI response time: {$a} s';
 $string['result:latency'] = 'Latency: {$a} ms';
 $string['result:prompt'] = 'Prompt sent to the LLM';
+$string['result:copy'] = 'Copy';
+$string['result:copied'] = 'Copied!';
 
 $string['error:adhoc_learnmore'] = 'Learn more about ad-hoc query syntax';
 $string['error:unknownplaceholders'] = 'This SQL contains ad-hoc report tokens that could not be resolved: {$a}. Replace them with literal values before running. <a href="https://docs.moodle.org/502/en/Custom_SQL_queries_report" target="_blank" rel="noopener">Learn more about ad-hoc query syntax</a>.';

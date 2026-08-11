@@ -127,8 +127,46 @@ if ($action === 'generate' && $question !== '') {
         if (get_config('local_sqlchat', 'showprompt') && $result->prompt !== '') {
             echo html_writer::start_tag('details', ['class' => 'mb-2']);
             echo html_writer::tag('summary', get_string('result:prompt', 'local_sqlchat'));
-            echo html_writer::tag('pre', s($result->prompt), ['class' => 'bg-light p-2']);
+            echo html_writer::tag('button', get_string('result:copy', 'local_sqlchat'), [
+                'type' => 'button',
+                'class' => 'btn btn-sm btn-outline-secondary mb-2',
+                'data-sqlchat-copy' => 'sqlchat-prompt',
+                'data-copied-label' => get_string('result:copied', 'local_sqlchat'),
+            ]);
+            echo html_writer::tag('pre', s($result->prompt), [
+                'id' => 'sqlchat-prompt', 'class' => 'bg-light p-2',
+            ]);
             echo html_writer::end_tag('details');
+            echo html_writer::script("
+document.querySelectorAll('[data-sqlchat-copy]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var pre = document.getElementById(btn.getAttribute('data-sqlchat-copy'));
+        if (!pre) { return; }
+        var text = pre.textContent;
+        var flash = function() {
+            var orig = btn.textContent;
+            btn.textContent = btn.getAttribute('data-copied-label');
+            setTimeout(function() { btn.textContent = orig; }, 1500);
+        };
+        var fallback = function() {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try { document.execCommand('copy'); flash(); } catch (e) { /* noop */ }
+            document.body.removeChild(ta);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(flash, fallback);
+        } else {
+            fallback();
+        }
+    });
+});
+");
         }
     } catch (\Throwable $e) {
         echo $OUTPUT->notification($e->getMessage(), 'error');
