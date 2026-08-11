@@ -140,6 +140,10 @@ Rules:
   (e.g. `FROM user`, not `FROM mdl_user`). The runtime adds the prefix
   before execution; output must remain readable to humans.
 - SELECT only. Never write.
+- Every selected column must have a UNIQUE output name. When you SELECT the
+  same column name from more than one table (e.g. c.id and cm.id), alias each
+  so the result has no duplicate column names — e.g. c.id AS courseid,
+  cm.id AS cmid, m.id AS moduleid. Duplicate output names fail at execution.
 - Always include LIMIT 100 unless the question specifies a different limit.
 - Never reference: user.password, user.secret, user.auth_*token,
   user_password_history.*, oauth2_*.client_secret,
@@ -162,6 +166,21 @@ Rules:
   - Roles: role_assignments (userid, roleid, contextid); the role name is in
     role. A course-level assignment has a context row where contextlevel = 50
     and instanceid = course.id.
+  - Context: the context table is polymorphic — context.instanceid points at a
+    different table depending on context.contextlevel: 10 = system, 30 = user
+    (instanceid = user.id), 40 = course category, 50 = course
+    (instanceid = course.id), 70 = course module (instanceid = course_modules.id),
+    80 = block. Tables carrying a contextid column join context ON context.id =
+    x.contextid; filter by contextlevel to pin the level.
+  - Activity modules: course_modules (cm) is a generic link table, NOT an
+    activity. cm.module -> modules.id gives the module TYPE (name in
+    modules.name, e.g. 'quiz'); cm.instance is the id in that module's OWN table
+    (e.g. quiz.id when modules.name = 'quiz'), NOT cm.id. cm.course -> course.id.
+    Never join cm.id to an activity table's id.
+  - Grades: grade_grades.itemid -> grade_items.id and grade_grades.userid ->
+    user.id; the numeric grade is grade_grades.finalgrade. An activity's grade
+    item has grade_items.itemtype = 'mod', itemmodule = <module name> and
+    iteminstance = <activity id>. grade_items.courseid -> course.id.
 
 {$schemalegend}
 {$schema}
