@@ -13,8 +13,7 @@ Alpha (MVP). Single-page UI. Four schema retrieval modes (full / bm25 / ddl / dd
 question  →  schema_compressor (walks every install.xml; MUC cached)
              [retrieval mode: full | bm25 | ddl | ddl_bm25]
           →  bm25_retriever narrows to relevant tables (bm25 / ddl_bm25 modes)
-          →  chat_engine builds prompt (dialect-aware, unprefixed names,
-                                        date cols wrapped in %%TIMESTAMP(expr)%%)
+          →  chat_engine builds prompt (dialect-aware, unprefixed names)
           →  tool_ai_bridge\ai_bridge::perform_request($prompt, $purpose)
           →  sql_validator (SELECT-only, no stacked statements)
           →  api::execute  →  sql_executor (resolves %%TIMESTAMP%% tokens,
@@ -70,14 +69,12 @@ log row.
 
 ## Portable date tokens
 
-Generated SQL wraps date-like integer columns (name matches
-`time|date|created|modified|start|end|expir|due|login|logout|access|seen|stamp|cron|sync|sent|finish|run`)
-in the portable token `%%TIMESTAMP(expr)%%` — SELECT output only; the raw
-column is kept in `WHERE` / `ORDER BY` / joins. `sql_executor::resolve_tokens()`
-renders the token per dialect (PG → `to_timestamp`, MariaDB/MySQL →
-`FROM_UNIXTIME`, other → raw `expr`) before prefix/LIMIT/validation. The token
-mirrors `local_reportsources`, so generated SQL is reusable as a
-`local_reportsources` source.
+The plugin no longer instructs the LLM to emit `%%TIMESTAMP(expr)%%`; generated
+SQL selects raw Unix-epoch integer columns. `sql_executor::resolve_tokens()` is
+retained for compatibility: SQL authored elsewhere (e.g. a `local_reportsources`
+source) that already contains `%%TIMESTAMP(expr)%%` is rendered per dialect
+(PG → `to_timestamp`, MariaDB/MySQL → `FROM_UNIXTIME`, other → raw `expr`)
+before prefix/LIMIT/validation.
 
 ## Security
 
