@@ -33,15 +33,20 @@ class api {
      *
      * @param string $question Plain-English description of the desired data.
      * @param int|null $contextid Context for the AI bridge; defaults to system context.
+     * @param string $extrarules Optional extra prompt rules appended verbatim to the
+     *  Rules block. This plugin is agnostic about their content — a caller such as
+     *  local_reportsources passes the instructions describing its own %%…%% tokens
+     *  so the generated SQL is reusable there. Standalone use leaves it empty, so no
+     *  caller-specific tokens are ever emitted.
      * @return result
      */
-    public static function generate_sql(string $question, ?int $contextid = null): result {
+    public static function generate_sql(string $question, ?int $contextid = null, string $extrarules = ''): result {
         $context = $contextid !== null
             ? \context::instance_by_id($contextid)
             : \context_system::instance();
         require_capability('local/sqlchat:use', $context);
 
-        return (new chat_engine())->ask($question, $context->id);
+        return (new chat_engine())->ask($question, $context->id, $extrarules);
     }
 
     /**

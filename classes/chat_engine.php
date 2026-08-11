@@ -30,9 +30,11 @@ class chat_engine {
      *
      * @param string $question The user's question.
      * @param int|null $contextid Context to pass to the AI bridge; defaults to the system context.
+     * @param string $extrarules Extra prompt rules appended verbatim to the Rules block; a caller
+     *  (e.g. local_reportsources) supplies instructions for its own %%…%% tokens. Empty by default.
      * @return result
      */
-    public function ask(string $question, ?int $contextid = null): result {
+    public function ask(string $question, ?int $contextid = null, string $extrarules = ''): result {
         $start = microtime(true);
         $audit = new audit_log();
 
@@ -44,7 +46,7 @@ class chat_engine {
             $mode = (string) (get_config('local_sqlchat', 'retrieval') ?: 'full');
             [$schema, $isddl] = $this->retrieve_schema($compressor, $mode, $question);
 
-            $prompt = $this->build_prompt($schema, $question, $isddl);
+            $prompt = $this->build_prompt($schema, $question, $isddl, $extrarules);
 
             $contextid = $contextid ?? \context_system::instance()->id;
             $backend = (string) (get_config('local_sqlchat', 'backend') ?: 'core_ai_subsystem');
@@ -115,9 +117,10 @@ class chat_engine {
      * @param string $schema Schema text (compact one-liners or CREATE TABLE DDL).
      * @param string $question The user's question.
      * @param bool $isddl Whether $schema is CREATE TABLE DDL rather than the compact format.
+     * @param string $extrarules Caller-supplied rules appended verbatim to the Rules block.
      * @return string
      */
-    private function build_prompt(string $schema, string $question, bool $isddl = false): string {
+    private function build_prompt(string $schema, string $question, bool $isddl = false, string $extrarules = ''): string {
         global $CFG;
         $dialect = match ($CFG->dbtype ?? 'mariadb') {
             'pgsql' => 'PostgreSQL',
@@ -129,6 +132,12 @@ class chat_engine {
         $schemalegend = $isddl
             ? 'Schema (CREATE TABLE statements; table/reference names are unprefixed):'
             : 'Schema (table(col1, col2 PK, fkcol→reftable, ...)):';
+
+        // A caller (e.g. local_reportsources) may append its own rules — token
+        // instructions, etc. Trimmed and prefixed with a newline so it slots into
+        // the Rules list; empty when the caller supplied nothing.
+        $extrarules = trim($extrarules);
+        $extrarules = $extrarules === '' ? '' : "\n" . $extrarules;
 
         return <<<PROMPT
 You are a Moodle SQL generator. Output ONLY a single SELECT statement.
@@ -171,7 +180,7 @@ Rules:
   - Grades: grade_grades.itemid -> grade_items.id and grade_grades.userid ->
     user.id; the numeric grade is grade_grades.finalgrade. An activity's grade
     item has grade_items.itemtype = 'mod', itemmodule = <module name> and
-    iteminstance = <activity id>. grade_items.courseid -> course.id.
+    iteminstance = <activity id>. grade_items.courseid -> course.id.{$extrarules}
 
 {$schemalegend}
 {$schema}

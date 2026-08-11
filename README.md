@@ -16,9 +16,9 @@ question  →  schema_compressor (walks every install.xml; MUC cached)
           →  chat_engine builds prompt (dialect-aware, unprefixed names)
           →  tool_ai_bridge\ai_bridge::perform_request($prompt, $purpose)
           →  sql_validator (SELECT-only, no stacked statements)
-          →  api::execute  →  sql_executor (resolves %%TIMESTAMP%% tokens,
-                              read-only conn optional, prefix injection,
-                              LIMIT, statement timeout)
+          →  api::execute  →  adhoc_placeholder_processor (standalone %% tokens)
+                           →  sql_executor (read-only conn optional, prefix
+                              injection, LIMIT, statement timeout)
           →  result table
 audit_log records every generation and execution outcome.
 ```
@@ -67,14 +67,23 @@ applies the table prefix to unprefixed names, enforces `LIMIT`, sets the
 statement timeout, and records the execution outcome against the supplied
 log row.
 
-## Portable date tokens
+## Caller-supplied prompt rules (`%%…%%` tokens)
 
-The plugin no longer instructs the LLM to emit `%%TIMESTAMP(expr)%%`; generated
-SQL selects raw Unix-epoch integer columns. `sql_executor::resolve_tokens()` is
-retained for compatibility: SQL authored elsewhere (e.g. a `local_reportsources`
-source) that already contains `%%TIMESTAMP(expr)%%` is rendered per dialect
-(PG → `to_timestamp`, MariaDB/MySQL → `FROM_UNIXTIME`, other → raw `expr`)
-before prefix/LIMIT/validation.
+This plugin is **token-agnostic**. `api::generate_sql($question, $contextid, $extrarules)`
+takes a third `$extrarules` string (default `''`) that is appended verbatim to the prompt's
+Rules block. Standalone use passes nothing, so the LLM emits plain SQL with no special tokens.
+
+`local_reportsources` owns its `%%…%%` tokens (dates → `%%TIMESTAMP%%`, text case →
+`%%CASE%%`, `%%EPOCH%%`, `%%NOW%%`, `%%WWWROOT%%`, `%%CONTEXT_*%%`, `%%COURSEID%%`,
+`%%COURSECONTEXT%%`). It passes `\local_reportsources\local\sql\view::ai_prompt_rules()`
+as `$extrarules` so the generated SQL uses them, and resolves them itself when the report
+view is built. If `local_reportsources` is not installed, no caller supplies token rules and
+the whole token concern is absent — this plugin neither emits nor resolves them.
+
+(Separately, `api::execute` runs `adhoc_placeholder_processor` over SQL before execution to
+resolve this plugin's own standalone placeholders — `%%USERID%%`, `%%STARTTIME%%`,
+`%%ENDTIME%%`, `%%WWWROOT%%`, `%%C%%`/`%%S%%`/`%%Q%%`. That is unrelated to the reportsources
+tokens above and needs no external plugin.)
 
 ## Security
 
