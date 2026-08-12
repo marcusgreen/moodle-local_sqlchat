@@ -149,6 +149,10 @@ Rules:
   (e.g. `FROM user`, not `FROM mdl_user`). The runtime adds the prefix
   before execution; output must remain readable to humans.
 - SELECT only. Never write.
+- When a table in the FROM/JOIN clauses is given an alias, that alias must be
+  UNIQUE. Never reuse the same alias for two tables (e.g. do NOT alias both
+  user_enrolments and enrol as `e`). Duplicate aliases fail with "Not unique
+  table/alias".
 - Every selected column must have a UNIQUE output name. When you SELECT the
   same column name from more than one table (e.g. c.id and cm.id), alias each
   so the result has no duplicate column names — e.g. c.id AS courseid,
