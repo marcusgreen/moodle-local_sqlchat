@@ -1,0 +1,20 @@
+# local_sqlchat batch-test questions.
+# One natural-language question per line. Blank lines and #comments ignored.
+# Covers the join paths the prompt rules target: enrolments, roles, contexts,
+# activity modules, grades. Edit freely.
+
+List all courses with their full name and short name
+How many users are registered on the site
+Show the 20 most recently created user accounts with their email
+List every user enrolled in the course with short name 'MATH101'
+Count how many users are enrolled in each course
+Which users have the role of teacher in any course
+List all users assigned a role at course level with the course name and role name
+Show all quizzes and the course they belong to
+List every activity module in the course 'MATH101' with its module type
+How many activities of each module type exist across the site
+Show the final grade for each user in each graded activity of course 'MATH101'
+List courses that currently have no enrolled users
+Show total enrolment count per course category
+List all forums and how many discussions each contains
+Which users have never logged in
