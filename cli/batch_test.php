@@ -44,12 +44,14 @@ require_once($CFG->libdir . '/clilib.php');
         'file'  => '',
         'limit' => 0,
         'mode'  => '',
+        'delay' => 0,
     ],
     [
         'h' => 'help',
         'f' => 'file',
         'l' => 'limit',
         'm' => 'mode',
+        'd' => 'delay',
     ]
 );
 
@@ -69,6 +71,8 @@ Options:
   -l, --limit=N     Only run the first N questions from the file (0 = all).
   -m, --mode=MODE   Override the retrieval mode for this run only:
                     full | bm25 | ddl | ddl_bm25. Restored on exit.
+  -d, --delay=SECS  Seconds to pause between questions (0 = none). Use to stay
+                    under a provider's rate limit. Fractional values allowed.
   -h, --help        Show this help.
 
 Example:
@@ -135,9 +139,15 @@ cli_writeln(str_repeat('-', 72));
 
 $counts = ['ok' => 0, 'gen' => 0, 'exec' => 0];
 $execfailures = [];
+$delay = (float) $options['delay'];
 
 foreach ($questions as $i => $question) {
     $label = sprintf('%2d/%d', $i + 1, count($questions));
+
+    // Throttle between questions to stay under a provider's rate limit.
+    if ($delay > 0 && $i > 0) {
+        usleep((int) round($delay * 1_000_000));
+    }
 
     // Phase A: generate SQL (LLM + validator).
     try {
