@@ -25,10 +25,18 @@ namespace local_sqlchat;
  */
 class sql_validator {
 
-    /** Keywords that must never appear in user-submitted SQL. */
-    private const BLOCKED = [
+    /**
+     * Write/delete keywords: an attempt to modify or remove data. Blocked with
+     * the read-only refusal message rather than the generic keyword error.
+     */
+    private const DELETION = [
         'INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE',
-        'GRANT', 'REVOKE', 'CREATE', 'REPLACE', 'RENAME', 'CALL',
+        'CREATE', 'REPLACE', 'RENAME',
+    ];
+
+    /** Other keywords that must never appear in user-submitted SQL. */
+    private const BLOCKED = [
+        'GRANT', 'REVOKE', 'CALL',
         'EXECUTE', 'HANDLER', 'LOCK', 'UNLOCK',
         'INTO\\s+OUTFILE', 'INTO\\s+DUMPFILE',
         'LOAD_FILE', 'LOAD\\s+DATA', 'LOAD\\s+XML',
@@ -48,6 +56,13 @@ class sql_validator {
 
         if (!preg_match('/^\s*(?:WITH\b.*?\bSELECT\b|SELECT\b)/is', $trimmed)) {
             throw new \moodle_exception('error:onlyselect', 'local_sqlchat');
+        }
+
+        foreach (self::DELETION as $kw) {
+            if (preg_match('/\b' . $kw . '\b/i', $trimmed)) {
+                global $USER;
+                throw new \moodle_exception('error:deletionrefused', 'local_sqlchat', '', $USER->firstname);
+            }
         }
 
         foreach (self::BLOCKED as $kw) {

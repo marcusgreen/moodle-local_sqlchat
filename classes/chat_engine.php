@@ -56,6 +56,11 @@ class chat_engine {
             $raw = $bridge->perform_request($prompt, $purpose);
             $ailatencyms = (int) round((microtime(true) - $aistart) * 1000);
 
+            if ($this->is_refusal($raw)) {
+                global $USER;
+                throw new \moodle_exception('error:deletionrefused', 'local_sqlchat', '', $USER->firstname);
+            }
+
             $sql = $this->extract_sql($raw);
             if ($sql === '') {
                 throw new \moodle_exception('error:llmempty', 'local_sqlchat');
@@ -174,6 +179,10 @@ Rules:
   (e.g. `FROM user`, not `FROM mdl_user`). The runtime adds the prefix
   before execution; output must remain readable to humans.
 - SELECT only. Never write.
+- This tool is READ-ONLY. If the question asks to delete, drop, truncate,
+  update, insert, alter, or otherwise modify or remove data, do NOT generate
+  SQL. Instead output exactly this line and nothing else:
+  I'm sorry Dave, I'm afraid I can't do that
 - When a table in the FROM/JOIN clauses is given an alias, that alias must be
   UNIQUE. Never reuse the same alias for two tables (e.g. do NOT alias both
   user_enrolments and enrol as `e`). Duplicate aliases fail with "Not unique
@@ -218,6 +227,18 @@ Question: {$question}
 
 SQL:
 PROMPT;
+    }
+
+    /**
+     * Detect the read-only refusal line the LLM is instructed to emit for
+     * deletion/modification requests, so it can be surfaced verbatim instead
+     * of being mistaken for empty output.
+     *
+     * @param string $raw Raw LLM response.
+     * @return bool
+     */
+    private function is_refusal(string $raw): bool {
+        return (bool) preg_match('/afraid I (?:can\'?t|cannot) do that/i', $raw);
     }
 
     /**

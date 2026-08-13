@@ -48,6 +48,9 @@ $string['settings:retrieval_bm25'] = 'BM25 retrieval (compact, relevant tables o
 $string['settings:retrieval_ddl'] = 'Full DDL (CREATE TABLE for every table)';
 $string['settings:retrieval_ddl_bm25'] = 'BM25 DDL (CREATE TABLE for relevant tables only)';
 
+$string['settings:extrarules'] = 'Additional prompt rules';
+$string['settings:extrarules_desc'] = 'Appended to every generated prompt, after the built-in rules. Use for site-specific schema hints only — e.g. how your local custom tables join to core tables. This does not replace the built-in rules (SELECT-only, security exclusions, Moodle join paths), so it cannot weaken them. One rule per line; leave blank for none.';
+
 $string['settings:showprompt'] = 'Show the prompt sent to the LLM';
 $string['settings:showprompt_desc'] = 'When enabled, the full prompt sent to the language model (including the compressed schema) is displayed beneath the generated SQL, so it can be copied and reused on a different model. Exposes schema details — keep off on production sites where non-admins can reach this page.';
 
@@ -82,8 +85,11 @@ $string['error:unknownplaceholders'] = 'This SQL contains ad-hoc report tokens t
 $string['error:namedparams'] = 'This SQL uses ad-hoc report named parameters that require manual substitution: {$a}. Replace each :param_name placeholder with the value you want to filter by, then run the query again. <a href="https://docs.moodle.org/502/en/Custom_SQL_queries_report" target="_blank" rel="noopener">Learn more about ad-hoc query syntax</a>.';
 $string['error:onlyselect'] = 'Only SELECT statements are permitted.';
 $string['error:blockedkeyword'] = 'Blocked SQL keyword: {$a}';
+$string['error:deletionrefused'] = "I'm sorry {\$a}, I'm afraid I can't do that. SQL Chat is read-only — it cannot delete, update, insert or otherwise change data.";
 $string['error:nosemicolons'] = 'Stacked statements are not permitted.';
 $string['error:llmempty'] = 'LLM returned no SQL.';
+$string['err_retrievingfeedback'] = 'Error retrieving response from the AI system: {$a}';
+$string['err_retrievingfeedback_checkconfig'] = 'Unable to retrieve response. AI system configuration might be wrong, contact your administrator.';
 $string['error:execfailed'] = 'Query execution failed: {$a}';
 $string['error:dialectmismatch'] = 'SQL contains syntax incompatible with {$a->dialect}. Suggestions: {$a->suggestions}';
 $string['error:schemainvalid'] = 'The generated SQL references a table or column that does not exist, and the repair attempt also failed: {$a}';

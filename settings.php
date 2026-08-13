@@ -84,6 +84,14 @@ if ($hassiteconfig) {
         ]
     ));
 
+    $settings->add(new admin_setting_configtextarea(
+        'local_sqlchat/extrarules',
+        get_string('settings:extrarules', 'local_sqlchat'),
+        get_string('settings:extrarules_desc', 'local_sqlchat'),
+        '',
+        PARAM_RAW
+    ));
+
     $settings->add(new admin_setting_configcheckbox(
         'local_sqlchat/showprompt',
         get_string('settings:showprompt', 'local_sqlchat'),

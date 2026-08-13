@@ -46,7 +46,14 @@ class api {
             : \context_system::instance();
         require_capability('local/sqlchat:use', $context);
 
-        return (new chat_engine())->ask($question, $context->id, $extrarules);
+        // Site-wide admin rules (schema hints for local tables, conventions, etc.)
+        // apply to every caller. They sit between the built-in core rules and any
+        // caller-supplied rules: core rules → admin setting → caller rules.
+        $adminrules = trim((string) get_config('local_sqlchat', 'extrarules'));
+        $extrarules = trim($extrarules);
+        $mergedrules = implode("\n", array_filter([$adminrules, $extrarules]));
+
+        return (new chat_engine())->ask($question, $context->id, $mergedrules);
     }
 
     /**
