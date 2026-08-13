@@ -62,6 +62,31 @@ class chat_engine {
             }
 
             (new sql_validator())->check($sql);
+
+            // Correctness gate: dry-run the SQL so invented tables/columns (e.g.
+            // user_enrolments.courseid) are caught before returning. On failure,
+            // feed the database error back to the model for a single repair
+            // attempt, then re-validate. Security validation always runs first.
+            $dberror = (new sql_executor())->dry_run($sql);
+            if ($dberror !== null) {
+                $repairprompt = $prompt . "\n\nYour previous SQL was rejected by the database:\n"
+                    . "  {$sql}\nError: {$dberror}\n"
+                    . "Return only the corrected SELECT statement — no explanation, no fences.";
+                $aistart = microtime(true);
+                $raw = $bridge->perform_request($repairprompt, $purpose);
+                $ailatencyms += (int) round((microtime(true) - $aistart) * 1000);
+
+                $sql = $this->extract_sql($raw);
+                if ($sql === '') {
+                    throw new \moodle_exception('error:llmempty', 'local_sqlchat');
+                }
+                (new sql_validator())->check($sql);
+
+                $dberror = (new sql_executor())->dry_run($sql);
+                if ($dberror !== null) {
+                    throw new \moodle_exception('error:schemainvalid', 'local_sqlchat', '', $dberror);
+                }
+            }
         } catch (\Throwable $e) {
             $latencyms = (int) round((microtime(true) - $start) * 1000);
             $audit->record_generation($question, $sql, false, $e->getMessage(), $latencyms, 0);

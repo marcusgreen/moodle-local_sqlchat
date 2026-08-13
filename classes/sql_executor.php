@@ -64,6 +64,51 @@ class sql_executor {
     }
 
     /**
+     * Dry-run a SELECT to check that every referenced table/column exists,
+     * without returning rows. Runs EXPLAIN, which parses and plans the query
+     * (touching no data) and raises "Unknown column"/"Unknown table" for any
+     * identifier the LLM invented — the common failure mode where a model
+     * fabricates a column such as user_enrolments.courseid.
+     *
+     * Placeholders that are resolved later by api::execute (%%TOKEN%% and
+     * :named params) are neutralised to NULL first so EXPLAIN validates the
+     * identifiers rather than choking on the unresolved tokens. The original
+     * SQL is never mutated — only this throwaway probe copy is.
+     *
+     * @param string $sql Unprefixed, security-validated SELECT SQL.
+     * @return string|null Null when the query is structurally valid; otherwise
+     *  the database error message (suitable for feeding back to the LLM).
+     */
+    public function dry_run(string $sql): ?string {
+        global $CFG;
+        $dbtype = $CFG->dbtype ?? 'mariadb';
+        // EXPLAIN of a SELECT parses + plans on MySQL/MariaDB and PostgreSQL.
+        // Skip silently on engines where that guarantee does not hold.
+        if (!in_array($dbtype, ['mariadb', 'mysqli', 'pgsql'], true)) {
+            return null;
+        }
+
+        // Neutralise deferred placeholders. Named-param regex excludes '::'
+        // (a PostgreSQL cast) via the lookbehind so casts survive intact.
+        $probe = preg_replace('/%%[A-Za-z0-9_]+%%/', 'NULL', $sql);
+        $probe = preg_replace('/(?<!:):[A-Za-z_][A-Za-z0-9_]*/', 'NULL', $probe);
+
+        $db = $this->get_connection();
+        $probe = $this->apply_prefix($probe, $db);
+
+        try {
+            $rs = $db->get_recordset_sql('EXPLAIN ' . $probe);
+            $rs->close();
+            return null;
+        } catch (\dml_exception $e) {
+            // debuginfo carries the specific driver message ("Unknown column
+            // 'ue.courseid'"); getMessage() is only the generic wrapper. The
+            // specific text is what lets the model repair the SQL.
+            return !empty($e->debuginfo) ? $e->debuginfo : $e->getMessage();
+        }
+    }
+
+    /**
      * Prefix every bare Moodle table name in the SQL with $CFG->prefix.
      * Tokens already starting with the prefix are left alone, so callers can
      * safely pass either prefixed or unprefixed SQL.
@@ -85,7 +130,10 @@ class sql_executor {
         $names = array_values($tables);
         usort($names, static fn($a, $b) => strlen($b) <=> strlen($a));
         $alts = implode('|', array_map('preg_quote', $names));
-        $pattern = '/(?<![A-Za-z0-9_])(' . $alts . ')(?![A-Za-z0-9_])/';
+        // Lookbehind excludes '.' as well as word chars so a column reference
+        // whose name matches a table (e.g. quiz.course, forum_discussions.forum)
+        // is never prefixed. Bare table names in FROM/JOIN are never dotted.
+        $pattern = '/(?<![A-Za-z0-9_.])(' . $alts . ')(?![A-Za-z0-9_])/';
         return preg_replace_callback(
             $pattern,
             static fn($m) => $prefix . $m[1],

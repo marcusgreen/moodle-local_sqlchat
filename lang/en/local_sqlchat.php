@@ -86,6 +86,7 @@ $string['error:nosemicolons'] = 'Stacked statements are not permitted.';
 $string['error:llmempty'] = 'LLM returned no SQL.';
 $string['error:execfailed'] = 'Query execution failed: {$a}';
 $string['error:dialectmismatch'] = 'SQL contains syntax incompatible with {$a->dialect}. Suggestions: {$a->suggestions}';
+$string['error:schemainvalid'] = 'The generated SQL references a table or column that does not exist, and the repair attempt also failed: {$a}';
 
 $string['privacy:metadata'] = 'local_sqlchat logs the question, generated SQL, and execution metadata for each query made by a user.';
 $string['privacy:metadata:log:userid'] = 'The user who made the query.';
