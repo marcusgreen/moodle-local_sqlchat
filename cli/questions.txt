@@ -1,20 +1,132 @@
 # local_sqlchat batch-test questions.
 # One natural-language question per line. Blank lines and #comments ignored.
-# Covers the join paths the prompt rules target: enrolments, roles, contexts,
-# activity modules, grades. Edit freely.
+# 100 questions spread across plausible table/data combinations an admin or
+# teacher might ask, grouped by domain. Edit freely.
 
-List all courses with their full name and short name
+# --- Users / authentication ---
 How many users are registered on the site
 Show the 20 most recently created user accounts with their email
+List all suspended user accounts with their username and email
+Count users grouped by authentication method
+List users who have never logged in
+Show the 10 users with the most recent last login time
+Count users grouped by country
+List users whose email address ends in gmail.com
+Show users created in the last 30 days
+List deleted user accounts with the date they were deleted
+Show users who have not logged in for more than 90 days
+List users grouped by the city in their profile
+Count how many users have a profile description set
+Show the first and last name of users whose account is not yet confirmed
+List the user preferences stored for the admin user
+
+# --- Courses / categories ---
+List all courses with their full name and short name
+Count courses in each course category
+List hidden (not visible) courses
+Show courses that start in the future
+Count courses grouped by course format
+List the course categories ordered by how many courses each contains
+List courses that currently have no enrolled users
+Show the course categories and their parent category name
+List courses that have completion tracking enabled
+Show the number of sections in each course
+Count courses grouped by the language they are set to
+List the 10 most recently created courses with their creation date
+
+# --- Enrolments ---
 List every user enrolled in the course with short name 'MATH101'
 Count how many users are enrolled in each course
+Show the enrolment methods used across all courses and how many are active
+Count enrolments grouped by enrolment method name
+List users with a suspended enrolment in any course
+Show total enrolment count per course category
+List the 10 courses with the highest number of enrolled users
+Show enrolments that started in the last 7 days
+List courses that use self enrolment
+Count active versus suspended enrolments across the site
+
+# --- Roles / context / capabilities ---
 Which users have the role of teacher in any course
 List all users assigned a role at course level with the course name and role name
-Show all quizzes and the course they belong to
+Count how many users hold each role site-wide
+List users assigned the manager role at system level
+Show all role assignments in the course 'MATH101' with the user and role name
+List the roles that exist and their short names
+Show permission overrides defined at course level
+Count role assignments grouped by context level
+
+# --- Groups / cohorts ---
+List all groups in the course 'MATH101' with their member counts
+Show which users belong to which cohort
+Count the number of members in each cohort
+List the groupings defined in each course
+Show users who are members of more than one group in the same course
+
+# --- Activity modules ---
 List every activity module in the course 'MATH101' with its module type
 How many activities of each module type exist across the site
-Show the final grade for each user in each graded activity of course 'MATH101'
-List courses that currently have no enrolled users
-Show total enrolment count per course category
+Count activity modules per course
+List all quizzes and the course they belong to
+Show all assignments with their due dates
 List all forums and how many discussions each contains
-Which users have never logged in
+Show activity modules that are hidden from students
+List the lessons and the course each belongs to
+Count how many activities have completion tracking enabled
+
+# --- Quiz ---
+Show the number of quiz attempts per quiz
+Show the average quiz grade for each quiz
+List the highest quiz grade achieved by each user
+Show quizzes with a time limit and what that limit is
+Count quiz attempts grouped by their state
+
+# --- Assignment ---
+List users who have submitted an assignment in the course 'MATH101'
+Show assignments and the number of submissions each has received
+List assignment submissions that have not yet been graded
+Show the average grade for each assignment
+
+# --- Forum ---
+List forum discussions with the number of posts in each
+Show the users who have posted the most in forums
+List forums that no one has posted in
+Show forum subscriptions per user
+
+# --- Grades / completion ---
+Show the final grade for each user in each graded activity of course 'MATH101'
+List the grade items in the course 'MATH101' with their type and max grade
+Show users who have completed the course 'MATH101'
+Count how many activities each user has completed in course 'MATH101'
+Show the grade categories defined in the course 'MATH101'
+List users whose final course grade is above 80 in course 'MATH101'
+Show the grade letters configured on the site
+List activities that award a grade in course 'MATH101'
+
+# --- Logs / activity ---
+Show the 20 most recent log events with the user and event name
+Count log events grouped by event action
+Show the number of user logins per day over the last 7 days
+List the most frequently viewed courses based on log events
+Show log events for the user with username 'admin' in the last day
+Count log events grouped by the originating component
+
+# --- Badges / competencies ---
+Show badges that have been issued and how many users earned each
+List the competency frameworks defined on the site
+Show the badges available in each course
+List users who have earned at least one badge
+
+# --- Messaging / calendar / files ---
+Count messages sent grouped by day over the last week
+List upcoming calendar events in the next 30 days
+Show the total size of files stored grouped by component
+List the calendar event types and how many events exist of each
+Show which users have unread notifications
+
+# --- Other activities / content ---
+List all glossaries and the number of entries in each
+Show the wikis and the course each belongs to
+Count choice activities and the number of responses each received
+List the tags used on the site and how many items use each
+Show workshop activities with their submission and assessment deadlines
