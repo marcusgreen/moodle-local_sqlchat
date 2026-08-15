@@ -3,6 +3,22 @@
 LLM-driven SQL generator for Moodle. Ask a natural-language question, get a
 validated SELECT statement against the live Moodle DB schema.
 
+## Origin
+
+`local_sqlchat` was created as part of the
+[`local_reportsources`](https://github.com/marcusgreen/local_reportsources)
+plugin — the natural-language-to-SQL engine that plugin needed was split out
+into this standalone component. The two are decoupled and can be used
+**separately or together**:
+
+- **Alone** — `local_sqlchat` works on its own via its single admin page, and
+  `local_reportsources` works on its own without AI.
+- **Together** — `local_reportsources` calls `local_sqlchat\api::generate_sql()`
+  to turn a question into SQL, passing its own `%%…%%` prompt-token rules and
+  resolving those tokens in its own report views. `local_sqlchat` holds no
+  knowledge of those tokens (see "Caller-supplied prompt rules" below), so it
+  neither requires nor depends on `local_reportsources` being installed.
+
 ## Status
 
 Beta. Single-page UI. Six schema retrieval modes
