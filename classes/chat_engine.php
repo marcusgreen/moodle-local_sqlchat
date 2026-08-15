@@ -87,9 +87,11 @@ class chat_engine {
                 }
                 (new sql_validator())->check($sql);
 
-                $dberror = (new sql_executor())->dry_run($sql);
+                $executor = new sql_executor();
+                $dberror = $executor->dry_run($sql);
                 if ($dberror !== null) {
-                    throw new \moodle_exception('error:schemainvalid', 'local_sqlchat', '', $dberror);
+                    $diagnosis = $executor->diagnose($sql, $dberror);
+                    throw new \moodle_exception('error:schemainvalid', 'local_sqlchat', '', $diagnosis);
                 }
             }
         } catch (\Throwable $e) {
@@ -174,6 +176,15 @@ class chat_engine {
         // instructions, etc. Trimmed and prefixed with a newline so it slots into
         // the Rules list; empty when the caller supplied nothing.
         $extrarules = trim($extrarules);
+        // Only forbid %%…%% placeholder tokens when no caller taught them. A caller
+        // (e.g. local_reportsources) that supplies extrarules resolves its own
+        // tokens downstream, so the blanket ban must not fight those instructions.
+        $notokens = $extrarules === ''
+            ? "\n- Use native {$dialect} functions for dates and text (e.g. FROM_UNIXTIME,"
+                . "\n  UNIX_TIMESTAMP, UPPER, LOWER). NEVER emit %%…%% placeholder tokens such"
+                . "\n  as %%TIMESTAMP(...)%%, %%EPOCH(...)%%, %%NOW%% or %%CASE(...)%% — this"
+                . "\n  tool does not resolve them and they fail at execution."
+            : '';
         $extrarules = $extrarules === '' ? '' : "\n" . $extrarules;
 
         return <<<PROMPT
@@ -198,7 +209,7 @@ Rules:
   same column name from more than one table (e.g. c.id and cm.id), alias each
   so the result has no duplicate column names — e.g. c.id AS courseid,
   cm.id AS cmid, m.id AS moduleid. Duplicate output names fail at execution.
-- Always include LIMIT 100 unless the question specifies a different limit.
+- Always include LIMIT 100 unless the question specifies a different limit.{$notokens}
 - Never reference: user.password, user.secret, user.auth_*token,
   user_password_history.*, oauth2_*.client_secret,
   config.value where name LIKE '%key%' OR '%secret%'.

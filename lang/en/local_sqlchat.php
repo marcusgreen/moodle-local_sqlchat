@@ -102,7 +102,11 @@ $string['err_retrievingfeedback'] = 'Error retrieving response from the AI syste
 $string['err_retrievingfeedback_checkconfig'] = 'Unable to retrieve response. AI system configuration might be wrong, contact your administrator.';
 $string['error:execfailed'] = 'Query execution failed: {$a}';
 $string['error:dialectmismatch'] = 'SQL contains syntax incompatible with {$a->dialect}. Suggestions: {$a->suggestions}';
-$string['error:schemainvalid'] = 'The generated SQL references a table or column that does not exist, and the repair attempt also failed: {$a}';
+$string['error:schemainvalid'] = 'The generated SQL could not be validated against the database, and the automatic repair attempt also failed. {$a}';
+$string['error:nocolumn'] = 'Column "{$a->column}" does not exist in table "{$a->table}". Available columns: {$a->columns}.';
+$string['error:notable'] = 'Table "{$a->table}" does not exist in this Moodle database.';
+$string['error:columnelsewhere'] = 'A column named "{$a->column}" does exist in these related tables: {$a->tables}.';
+$string['error:tableelsewhere'] = 'Did you mean one of these existing tables: {$a->tables}?';
 
 $string['privacy:metadata'] = 'local_sqlchat logs the question, generated SQL, and execution metadata for each query made by a user.';
 $string['privacy:metadata:log:userid'] = 'The user who made the query.';
