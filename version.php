@@ -27,7 +27,7 @@ defined('MOODLE_INTERNAL') || die();
 $plugin->component    = 'local_sqlchat';
 $plugin->version      = 2026081300;
 $plugin->requires     = 2024100700;
-$plugin->maturity     = MATURITY_ALPHA;
+$plugin->maturity     = MATURITY_BETA;
 $plugin->release      = '0.2.0';
 $plugin->dependencies = [
     'tool_ai_bridge' => ANY_VERSION,

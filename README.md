@@ -5,17 +5,22 @@ validated SELECT statement against the live Moodle DB schema.
 
 ## Status
 
-Alpha (MVP). Single-page UI. Four schema retrieval modes (full / bm25 / ddl / ddl_bm25).
+Beta. Single-page UI. Six schema retrieval modes
+(full / bm25 / ddl / ddl_bm25 / ddl_slim / ddl_slim_bm25). Failed dry-runs
+are diagnosed against the live schema before the error reaches the user.
 
 ## Architecture
 
 ```
 question  →  schema_compressor (walks every install.xml; MUC cached)
-             [retrieval mode: full | bm25 | ddl | ddl_bm25]
-          →  bm25_retriever narrows to relevant tables (bm25 / ddl_bm25 modes)
+             [retrieval mode: full | bm25 | ddl | ddl_bm25 |
+                             ddl_slim | ddl_slim_bm25]
+          →  bm25_retriever narrows to relevant tables (*_bm25 modes)
           →  chat_engine builds prompt (dialect-aware, unprefixed names)
           →  tool_ai_bridge\ai_bridge::perform_request($prompt, $purpose)
           →  sql_validator (SELECT-only, no stacked statements)
+          →  chat_engine dry-runs the SQL; on failure sql_executor::diagnose
+             verifies the missing table/column against the live schema
           →  api::execute  →  adhoc_placeholder_processor (standalone %% tokens)
                            →  sql_executor (read-only conn optional, prefix
                               injection, LIMIT, statement timeout)
@@ -31,7 +36,8 @@ audit_log records every generation and execution outcome.
   parsing `lib/db/install.xml` plus every plugin and subplugin
   `db/install.xml` via `core_component`. Result is cached in MUC
   (definition `schema` in `db/caches.php`): the compact schema under key
-  `compressed_v3`, the DDL map under key `ddl_map_v2`. The plugin's own
+  `compressed_v4`, the DDL map under key `ddl_map_v3`, and the slim
+  (losslessly compressed) DDL map under key `ddl_slim_map_v1`. The plugin's own
   `local_sqlchat_log` table is excluded from the schema sent to the LLM.
 
 ## Settings (Site administration → Plugins → Local plugins)
@@ -42,7 +48,7 @@ audit_log records every generation and execution outcome.
 | `timeoutsec` | 5 | Per-session statement timeout (PG / MariaDB / MySQL). |
 | `purpose` | `feedback` | `purpose` string passed to `tool_ai_bridge`. |
 | `backend` | `core_ai_subsystem` | AI backend selector. |
-| `retrieval` | `full` | Schema sent to the LLM: `full` / `bm25` (compact one-liners, all vs relevant tables) or `ddl` / `ddl_bm25` (CREATE TABLE statements with types, FKs and unique keys, all vs relevant tables). DDL costs more tokens but gives the model exact column types. |
+| `retrieval` | `full` | Schema sent to the LLM. Compact one-liners: `full` / `bm25` (all vs relevant tables). CREATE TABLE statements with types, FKs and unique keys: `ddl` / `ddl_bm25`. The same DDL losslessly compressed (shared conventions stated once in a preamble, one line per table, ~½ the tokens): `ddl_slim` / `ddl_slim_bm25`. `*_bm25` narrows to the tables relevant to the question. DDL costs more tokens but gives the model exact column types; slim modes suit SQL-specialised models on a tight context window. |
 | `showprompt` | off | Show the prompt sent to the LLM beneath the generated SQL, for reuse on another model. |
 
 Read-only DB credentials live in `config.php`, not the admin UI:
