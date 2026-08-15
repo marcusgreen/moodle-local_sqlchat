@@ -120,6 +120,8 @@ class chat_engine {
      *  - bm25      Compact schema reduced to the tables relevant to the question.
      *  - ddl       CREATE TABLE DDL for every table.
      *  - ddl_bm25  CREATE TABLE DDL for the BM25-relevant tables only.
+     *  - ddl_slim  Slim (losslessly compressed) CREATE TABLE DDL for every table.
+     *  - ddl_slim_bm25  Slim CREATE TABLE DDL for the BM25-relevant tables only.
      *
      * @param schema_compressor $compressor
      * @param string $mode Configured retrieval mode.
@@ -135,6 +137,11 @@ class chat_engine {
             case 'ddl_bm25':
                 $names = (new bm25_retriever($compressor))->retrieve_tables($question);
                 return [$compressor->get_ddl($names ?: null), true];
+            case 'ddl_slim':
+                return [$compressor->get_ddl_slim(), true];
+            case 'ddl_slim_bm25':
+                $names = (new bm25_retriever($compressor))->retrieve_tables($question);
+                return [$compressor->get_ddl_slim($names ?: null), true];
             case 'full':
             default:
                 return [$compressor->get_compact(), false];

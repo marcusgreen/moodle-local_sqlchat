@@ -40,8 +40,9 @@ Request flow (see README.md for ASCII diagram):
 3. **`chat_engine`** — picks the schema text for the configured **retrieval mode** (see below), builds the LLM prompt (dialect-aware, unprefixed table names, format-aware legend), calls `tool_ai_bridge\ai_bridge::perform_request()`, extracts SQL from raw response, runs `sql_validator`. Carries the built prompt back on `result->prompt`. The prompt is **token-agnostic**: `api::generate_sql` takes an `$extrarules` string (threaded through `chat_engine::ask` → `build_prompt`) that is appended verbatim to the Rules block. Standalone use (`index.php`) passes nothing. `local_reportsources` passes `\local_reportsources\local\sql\view::ai_prompt_rules()`, which describes its own `%%…%%` tokens (`%%TIMESTAMP%%`, `%%CASE%%`, `%%EPOCH%%`, `%%NOW%%`, `%%WWWROOT%%`, `%%CONTEXT_*%%`, `%%COURSEID%%`, `%%COURSECONTEXT%%`); reportsources resolves them itself when the view is built. This plugin holds **no** knowledge of those tokens, and if reportsources is not installed no caller supplies them.
 
 4. **`schema_compressor`** — walks every `install.xml` (core + all plugins + subplugins) via `core_component`, infers FKs by convention. Two output formats:
-   - **Compact** (`get_compact()`) — one line per table, `table(col, col PK, fkcol→reftable, ...)`. Cached in MUC (`local_sqlchat/schema`, key `compressed_v3`).
-   - **DDL** (`get_ddl(?array $only)`) — `CREATE TABLE` statements with exact column types/lengths, `NOT NULL`, defaults, `AUTO_INCREMENT`, `PRIMARY KEY (id)`, inferred `REFERENCES`, and `UNIQUE(...)` from unique keys **and** unique indexes. Built as a per-table map cached under key `ddl_map_v2`; `$only` filters it to a table subset (empty subset falls back to full DDL).
+   - **Compact** (`get_compact()`) — one line per table, `table(col, col PK, fkcol→reftable, ...)`. Cached in MUC (`local_sqlchat/schema`, key `compressed_v4`).
+   - **DDL** (`get_ddl(?array $only)`) — `CREATE TABLE` statements with exact column types/lengths, `NOT NULL`, defaults, `AUTO_INCREMENT`, `PRIMARY KEY (id)`, inferred `REFERENCES`, and `UNIQUE(...)` from unique keys **and** unique indexes. Built as a per-table map cached under key `ddl_map_v3`; `$only` filters it to a table subset (empty subset falls back to full DDL).
+   - **Slim DDL** (`get_ddl_slim(?array $only)`) — the DDL losslessly compressed (see Retrieval modes below); per-table map cached under key `ddl_slim_map_v1`.
 
    Invalidate either with `purge_caches.php`.
 
@@ -55,6 +56,10 @@ Request flow (see README.md for ASCII diagram):
 | `bm25` | compact, relevant tables only | low |
 | `ddl` | CREATE TABLE DDL, every table | highest |
 | `ddl_bm25` | CREATE TABLE DDL, relevant tables only | medium |
+| `ddl_slim` | Slim (losslessly compressed) DDL, every table | ~½ of `ddl` |
+| `ddl_slim_bm25` | Slim DDL, relevant tables only | low |
+
+**Slim DDL** (`get_ddl_slim(?array $only)`) is the same CREATE TABLE information as `get_ddl()` with the repeated boilerplate factored into a one-time preamble: the `id` PK column, per-column `NOT NULL`, `AUTO_INCREMENT`, `PRIMARY KEY (id)` and integer display widths are stated once; nullable columns are marked `?`; trivial `0`/`''` defaults dropped; one line per table. Reconstructable → lossless for query generation. ~1.9× fewer tokens than full DDL (measured ~61k→33k on the full core+plugins schema) while staying real SQL syntax — aimed at SQL-specialised models (e.g. XiYanSQL on Ollama) on a tight context window. Cached under key `ddl_slim_map_v1`.
 
 `chat_engine::retrieve_schema()` dispatches on the mode and returns `[schemaText, $isddl]`; `$isddl` switches the prompt's schema legend between the compact-format key and "CREATE TABLE statements".
 
@@ -71,7 +76,7 @@ Request flow (see README.md for ASCII diagram):
 - **LLM outputs unprefixed table names.** `sql_executor::apply_prefix` adds `$CFG->prefix` at runtime. Never store or display prefixed SQL to users.
 - **`api::generate_sql` does not execute.** Callers own execution so they can use their own render path. `api::execute` re-validates before running.
 - **Backend is pluggable.** `tool_ai_bridge` abstracts `core_ai_subsystem`, `local_ai_manager`, and `tool_aimanager`. Backend selected by admin setting `local_sqlchat/backend`.
-- **Schema cache keys are `compressed_v3` (compact) and `ddl_map_v2` (DDL).** Bump the relevant constant in `schema_compressor` if that output format changes incompatibly.
+- **Schema cache keys are `compressed_v4` (compact), `ddl_map_v3` (DDL) and `ddl_slim_map_v1` (slim DDL).** Bump the relevant constant in `schema_compressor` if that output format changes incompatibly.
 
 ## Settings
 
@@ -81,7 +86,7 @@ Request flow (see README.md for ASCII diagram):
 | `local_sqlchat/timeoutsec` | 5 | Per-session statement timeout |
 | `local_sqlchat/purpose` | `feedback` | Passed to `tool_ai_bridge` |
 | `local_sqlchat/backend` | `core_ai_subsystem` | AI backend selector |
-| `local_sqlchat/retrieval` | `full` | Schema retrieval mode: `full` / `bm25` / `ddl` / `ddl_bm25` (see Retrieval modes) |
+| `local_sqlchat/retrieval` | `full` | Schema retrieval mode: `full` / `bm25` / `ddl` / `ddl_bm25` / `ddl_slim` / `ddl_slim_bm25` (see Retrieval modes) |
 | `local_sqlchat/showprompt` | off | Render the prompt sent to the LLM beneath the generated SQL, for reuse on another model |
 | `$CFG->dbreadonly_user` / `dbreadonly_pass` | — | In `config.php`, not admin UI |
 

@@ -42,11 +42,21 @@ $string['settings:backend_local'] = 'local_ai_manager (MEBIS)';
 $string['settings:backend_tool'] = 'tool_aiconnect (AIConnect)';
 
 $string['settings:retrieval'] = 'Schema retrieval mode';
-$string['settings:retrieval_desc'] = 'How the Moodle schema is sent to the LLM. "Full" sends every table as a compact one-line summary (most accurate, most tokens). "BM25" sends only the compact lines for tables relevant to the question (far fewer tokens, may miss a table on unusual phrasing). The "DDL" modes send full CREATE TABLE statements instead — exact column types, lengths and foreign keys, at the cost of many more tokens: "Full DDL" for every table, "BM25 DDL" for the relevant tables only.';
+$string['settings:retrieval_help'] = 'Sets how much of the Moodle schema goes into the prompt, and in what form. More schema improves answers but costs tokens, and a prompt over the model\'s context window is silently truncated.
+
+* **Compact** — one terse line per table. Fewest tokens, no column types.
+* **DDL** — full CREATE TABLE statements with exact types and foreign keys. Most tokens.
+* **Slim DDL** — the same CREATE TABLE information losslessly compressed: shared conventions (the `id` primary key, `NOT NULL`, integer widths) are stated once in a preamble and each table is one line, with nullable columns marked `?`. Still valid SQL, roughly half the tokens of full DDL.
+* **BM25** variants send only the tables relevant to the question — the fewest tokens of all.
+
+For a SQL-specialised model on a tight context window, pair a slim mode with BM25 (**Slim BM25 DDL**).';
+$string['settings:retrieval_desc'] = 'How the Moodle schema is sent to the LLM. "Full" sends every table as a compact one-line summary (most accurate, most tokens). "BM25" sends only the compact lines for tables relevant to the question (far fewer tokens, may miss a table on unusual phrasing). The "DDL" modes send full CREATE TABLE statements instead — exact column types, lengths and foreign keys, at the cost of many more tokens: "Full DDL" for every table, "BM25 DDL" for the relevant tables only. The "Slim DDL" modes send the same CREATE TABLE statements losslessly compressed — the id primary key, per-column NOT NULL and integer display widths are stated once in a preamble instead of repeated on every table, cutting roughly 2-3x the tokens while staying real SQL syntax (best for SQL-specialised models on a tight context window).';
 $string['settings:retrieval_full'] = 'Full schema (compact, every table)';
 $string['settings:retrieval_bm25'] = 'BM25 retrieval (compact, relevant tables only)';
 $string['settings:retrieval_ddl'] = 'Full DDL (CREATE TABLE for every table)';
 $string['settings:retrieval_ddl_bm25'] = 'BM25 DDL (CREATE TABLE for relevant tables only)';
+$string['settings:retrieval_ddl_slim'] = 'Slim DDL (compressed CREATE TABLE for every table)';
+$string['settings:retrieval_ddl_slim_bm25'] = 'Slim BM25 DDL (compressed CREATE TABLE for relevant tables only)';
 
 $string['settings:extrarules'] = 'Additional prompt rules';
 $string['settings:extrarules_desc'] = 'Appended to every generated prompt, after the built-in rules. Use for site-specific schema hints only — e.g. how your local custom tables join to core tables. This does not replace the built-in rules (SELECT-only, security exclusions, Moodle join paths), so it cannot weaken them. One rule per line; leave blank for none.';

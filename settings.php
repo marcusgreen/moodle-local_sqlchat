@@ -73,7 +73,7 @@ if ($hassiteconfig) {
 
     $settings->add(new admin_setting_configselect(
         'local_sqlchat/retrieval',
-        get_string('settings:retrieval', 'local_sqlchat'),
+        get_string('settings:retrieval', 'local_sqlchat') . $OUTPUT->help_icon('settings:retrieval', 'local_sqlchat'),
         get_string('settings:retrieval_desc', 'local_sqlchat'),
         'full',
         [
@@ -81,6 +81,8 @@ if ($hassiteconfig) {
             'bm25' => get_string('settings:retrieval_bm25', 'local_sqlchat'),
             'ddl' => get_string('settings:retrieval_ddl', 'local_sqlchat'),
             'ddl_bm25' => get_string('settings:retrieval_ddl_bm25', 'local_sqlchat'),
+            'ddl_slim' => get_string('settings:retrieval_ddl_slim', 'local_sqlchat'),
+            'ddl_slim_bm25' => get_string('settings:retrieval_ddl_slim_bm25', 'local_sqlchat'),
         ]
     ));
 

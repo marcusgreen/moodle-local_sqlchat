@@ -32,6 +32,22 @@ class schema_compressor {
     /** Cache key for the per-table DDL map. */
     private const DDL_CACHE_KEY = 'ddl_map_v3';
 
+    /** Cache key for the per-table slim (losslessly compressed) DDL map. */
+    private const DDL_SLIM_CACHE_KEY = 'ddl_slim_map_v1';
+
+    /**
+     * Preamble stating the conventions the slim DDL factors out of every table, so the
+     * per-table lines stay short while the schema remains reconstructable (lossless for
+     * query generation). Prepended once to {@see get_ddl_slim()} output.
+     */
+    private const DDL_SLIM_PREAMBLE =
+        "-- Conventions (apply to every table below):\n"
+        . "-- * Every table has `id INT` AUTO_INCREMENT PRIMARY KEY (omitted from the column list).\n"
+        . "-- * Columns are NOT NULL unless the name is suffixed `?` (nullable).\n"
+        . "-- * DEFAULT is shown only when non-trivial; unshown defaults are 0 / '' as appropriate.\n"
+        . "-- * `col REF table` is a FOREIGN KEY REFERENCES table(id); `REF table(col)` targets another column.\n"
+        . "-- * INT display widths are dropped; VARCHAR/DECIMAL keep their length/precision.";
+
     /** Bundled curated implied-key map (generated from upstream morekeys.xml). */
     private const IMPLIED_KEYS_FILE = __DIR__ . '/../db/implied_keys.php';
 
@@ -147,6 +163,131 @@ class schema_compressor {
         $map = $this->build_ddl_map();
         $cache->set($key, $map);
         return $map;
+    }
+
+    /**
+     * Return slim (losslessly compressed) CREATE TABLE DDL, optionally restricted to a subset.
+     *
+     * Same information as {@see get_ddl()} but with the storage/convention redundancy factored out:
+     * the `id` primary-key column, per-column `NOT NULL`, `AUTO_INCREMENT`, `PRIMARY KEY (id)` and
+     * integer display widths are stated once in {@see DDL_SLIM_PREAMBLE} instead of on every table.
+     * Each table renders on a single line. Typically 2-3x fewer tokens than full DDL while remaining
+     * real SQL syntax — suited to SQL-specialised models on a tight context window.
+     *
+     * @param string[]|null $only Lower-case table names to include; null/empty means all tables.
+     * @param bool $forcerefresh Skip the cache and rebuild the slim DDL map.
+     * @return string Preamble followed by newline-joined single-line CREATE TABLE statements.
+     */
+    public function get_ddl_slim(?array $only = null, bool $forcerefresh = false): string {
+        $map = $this->get_ddl_slim_map($forcerefresh);
+        if ($map === []) {
+            return '';
+        }
+        if ($only) {
+            $wanted = array_flip($only);
+            $subset = array_intersect_key($map, $wanted);
+            // A subset matching nothing falls back to the full slim DDL rather than an empty schema.
+            $map = $subset !== [] ? $subset : $map;
+        }
+        return self::DDL_SLIM_PREAMBLE . "\n\n" . implode("\n", $map);
+    }
+
+    /**
+     * Build (and cache) a map of `tablename => "CREATE TABLE ... ;"` in the slim one-line form.
+     *
+     * @param bool $forcerefresh Skip the cache and rebuild.
+     * @return array<string, string>
+     */
+    public function get_ddl_slim_map(bool $forcerefresh = false): array {
+        $cache = \cache::make('local_sqlchat', 'schema');
+        $key = self::DDL_SLIM_CACHE_KEY . self::cache_suffix();
+        if (!$forcerefresh) {
+            $hit = $cache->get($key);
+            if ($hit !== false) {
+                return $hit;
+            }
+        }
+        $map = $this->build_ddl_slim_map();
+        $cache->set($key, $map);
+        return $map;
+    }
+
+    /**
+     * Walk every install.xml and render each table as a slim single-line CREATE TABLE.
+     *
+     * @return array<string, string>
+     */
+    private function build_ddl_slim_map(): array {
+        $this->require_xmldb();
+
+        $collected = $this->collect_tables();
+        if ($collected === []) {
+            return [];
+        }
+        $nameset = array_flip(array_keys($collected));
+
+        $map = [];
+        foreach ($collected as $name => $info) {
+            $map[$name] = $this->render_table_ddl_slim($name, $info, $nameset);
+        }
+        return $map;
+    }
+
+    /**
+     * Render one collected table as a slim single-line CREATE TABLE. The `id` sequence column,
+     * `NOT NULL`, `AUTO_INCREMENT` and `PRIMARY KEY (id)` are omitted (covered by the preamble);
+     * nullable columns are marked with a `?` suffix; trivial defaults (0 / '') are dropped.
+     *
+     * @param string $tablename
+     * @param array{fields: array<int, array<string, mixed>>, fks: array<string, string>} $info
+     * @param array<string, int> $nameset Flipped table-name lookup.
+     * @return string
+     */
+    private function render_table_ddl_slim(string $tablename, array $info, array $nameset): string {
+        $cols = [];
+        foreach ($info['fields'] as $field) {
+            // The id sequence column is the primary key by convention — omitted, stated in the preamble.
+            if (!empty($field['sequence'])) {
+                continue;
+            }
+            $colname = $field['name'];
+            // Mark nullable columns; NOT NULL is the unmarked default.
+            $token = $colname . (empty($field['notnull']) ? '?' : '') . ' ' . $this->sql_type_slim($field);
+            // Keep only non-trivial defaults; 0 and '' are the assumed defaults per the preamble.
+            $default = $field['default'] ?? null;
+            if ($default !== null && $default !== '' && $default !== '0' && $default !== 0) {
+                $token .= ' DEFAULT ' . $this->sql_default($field);
+            }
+            $ref = $info['fks'][$colname] ?? null;
+            if ($ref === null && !empty($field['isint'])) {
+                $ref = $this->infer_fk($colname, $tablename, $nameset);
+            }
+            if ($ref !== null) {
+                $refcol = $info['refcols'][$colname] ?? 'id';
+                $token .= ' REF ' . $ref . ($refcol !== 'id' ? '(' . $refcol . ')' : '');
+            }
+            $cols[] = $token;
+        }
+        foreach ($info['uniques'] ?? [] as $ufields) {
+            if ($ufields) {
+                $cols[] = 'UNIQUE(' . implode(', ', $ufields) . ')';
+            }
+        }
+        return "CREATE TABLE {$tablename} (" . implode(', ', $cols) . ');';
+    }
+
+    /**
+     * Slim variant of {@see sql_type()} — drops integer display widths (INT(10) → INT) which never
+     * affect query correctness, while keeping VARCHAR/DECIMAL length and precision.
+     *
+     * @param array<string, mixed> $field
+     * @return string
+     */
+    private function sql_type_slim(array $field): string {
+        if (($field['type'] ?? null) === XMLDB_TYPE_INTEGER) {
+            return 'INT';
+        }
+        return $this->sql_type($field);
     }
 
     /**
