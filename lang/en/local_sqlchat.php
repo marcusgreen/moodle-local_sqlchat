@@ -98,6 +98,7 @@ $string['error:blockedkeyword'] = 'Blocked SQL keyword: {$a}';
 $string['error:deletionrefused'] = "I'm sorry {\$a}, I'm afraid I can't do that. SQL Chat is read-only — it cannot delete, update, insert or otherwise change data.";
 $string['error:nosemicolons'] = 'Stacked statements are not permitted.';
 $string['error:llmempty'] = 'LLM returned no SQL.';
+$string['err_invalidbackend'] = 'Invalid AI backend configured. Check the plugin settings.';
 $string['err_retrievingfeedback'] = 'Error retrieving response from the AI system: {$a}';
 $string['err_retrievingfeedback_checkconfig'] = 'Unable to retrieve response. AI system configuration might be wrong, contact your administrator.';
 $string['error:execfailed'] = 'Query execution failed: {$a}';
