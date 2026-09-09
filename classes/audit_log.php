@@ -92,4 +92,30 @@ class audit_log {
         }
         $DB->update_record(self::TABLE, $existing);
     }
+
+    /**
+     * Recent generations for one user that produced SQL, newest first.
+     *
+     * Only rows with generated SQL are returned, since the history UI reloads
+     * the stored SQL directly into the execute box.
+     *
+     * @param int $userid The user whose history to fetch.
+     * @param int $limit Maximum rows to return.
+     * @return array Log rows (id, question, sqlgenerated, success, rowsreturned, timecreated).
+     */
+    public function get_user_history(int $userid, int $limit = 20): array {
+        global $DB;
+        if ($userid <= 0) {
+            return [];
+        }
+        return $DB->get_records_select(
+            self::TABLE,
+            'userid = :userid AND sqlgenerated IS NOT NULL',
+            ['userid' => $userid],
+            'timecreated DESC',
+            'id, question, sqlgenerated, success, rowsreturned, timecreated',
+            0,
+            $limit
+        );
+    }
 }

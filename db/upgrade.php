@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Version metadata for local_sqlchat.
+ * Upgrade steps for local_sqlchat.
  *
  * @package    local_sqlchat
  * @copyright  2026 Marcus Green
@@ -24,11 +24,25 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component    = 'local_sqlchat';
-$plugin->version      = 2026090900;
-$plugin->requires     = 2024100700;
-$plugin->maturity     = MATURITY_BETA;
-$plugin->release      = '0.2.0';
-$plugin->dependencies = [
-    'tool_ai_bridge' => ANY_VERSION,
-];
+/**
+ * Apply schema/config upgrades in version order.
+ *
+ * @param int $oldversion The currently installed plugin version.
+ * @return bool
+ */
+function xmldb_local_sqlchat_upgrade($oldversion) {
+    global $DB;
+    $dbman = $DB->get_manager();
+
+    if ($oldversion < 2026090900) {
+        // Composite index to recall a user's own prompt history newest-first.
+        $table = new xmldb_table('local_sqlchat_log');
+        $index = new xmldb_index('userid_timecreated_ix', XMLDB_INDEX_NOTUNIQUE, ['userid', 'timecreated']);
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+        upgrade_plugin_savepoint(true, 2026090900, 'local', 'sqlchat');
+    }
+
+    return true;
+}

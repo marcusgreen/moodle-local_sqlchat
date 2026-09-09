@@ -63,7 +63,7 @@ echo html_writer::tag('a',
         'href' => '#',
         'role' => 'button',
         'tabindex' => '0',
-        'class' => 'ml-1',
+        'class' => 'ms-1',
         'data-toggle' => 'popover',
         'data-bs-toggle' => 'popover',
         'data-trigger' => 'focus',
@@ -172,6 +172,40 @@ document.querySelectorAll('[data-sqlchat-copy]').forEach(function(btn) {
         echo $OUTPUT->notification($e->getMessage(), 'error');
     }
 }
+
+// Current user's recent prompt history. Each row reloads its stored SQL into the
+// execute box below (no new LLM call).
+$history = \local_sqlchat\api::history();
+echo html_writer::start_tag('details', ['class' => 'mb-3']);
+echo html_writer::tag('summary', get_string('result:history', 'local_sqlchat'));
+if (!$history) {
+    echo html_writer::tag('p', get_string('history:empty', 'local_sqlchat'), ['class' => 'text-muted']);
+} else {
+    $htable = new html_table();
+    $htable->head = [
+        get_string('form:question', 'local_sqlchat'),
+        get_string('history:when', 'local_sqlchat'),
+        '',
+    ];
+    foreach ($history as $h) {
+        $loadform = html_writer::start_tag('form', ['method' => 'post', 'action' => $PAGE->url->out(false)]);
+        // Attribute values are escaped by html_writer; pass the SQL raw.
+        $loadform .= html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sqltorun', 'value' => $h->sqlgenerated]);
+        $loadform .= html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'logid', 'value' => $h->id]);
+        $loadform .= html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+        $loadform .= html_writer::tag('button', get_string('history:load', 'local_sqlchat'), [
+            'type' => 'submit', 'class' => 'btn btn-sm btn-outline-secondary',
+        ]);
+        $loadform .= html_writer::end_tag('form');
+        $htable->data[] = [
+            s(shorten_text($h->question, 120)),
+            userdate($h->timecreated),
+            $loadform,
+        ];
+    }
+    echo html_writer::table($htable);
+}
+echo html_writer::end_tag('details');
 
 if ($sqltorun !== '') {
     echo html_writer::start_tag('form', ['method' => 'post', 'action' => $PAGE->url->out(false)]);

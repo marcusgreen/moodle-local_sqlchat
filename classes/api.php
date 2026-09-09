@@ -66,6 +66,20 @@ class api {
     }
 
     /**
+     * The calling user's own recent prompt history, newest first.
+     *
+     * Scoped to the current user — callers cannot read another user's history.
+     *
+     * @param int $limit Maximum rows to return.
+     * @return array Log rows (id, question, sqlgenerated, success, rowsreturned, timecreated).
+     */
+    public static function history(int $limit = 20): array {
+        global $USER;
+        require_capability('local/sqlchat:use', \context_system::instance());
+        return (new audit_log())->get_user_history((int) $USER->id, $limit);
+    }
+
+    /**
      * Validate an arbitrary SQL string against the SELECT-only policy.
      *
      * @param string $sql SQL to check.

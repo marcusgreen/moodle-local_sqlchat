@@ -67,7 +67,7 @@ Request flow (see README.md for ASCII diagram):
 
 6. **`sql_executor`** — injects table prefix (longest-match regex substitution), appends `LIMIT` when absent, sets per-session statement timeout (PG: `statement_timeout`; MariaDB/MySQL: `max_statement_time`), uses read-only connection when `$CFG->dbreadonly_user`/`dbreadonly_pass` are set. It holds no token logic: a caller's `%%…%%` tokens are resolved by that caller, and this plugin's own standalone placeholders (`%%USERID%%`, `%%STARTTIME%%`, `%%ENDTIME%%`, `%%WWWROOT%%`, `%%C%%`/`%%S%%`/`%%Q%%`) are resolved by `adhoc_placeholder_processor` in `api::execute` before validation.
 
-7. **`audit_log`** — two-phase: `record_generation` inserts a row, `record_execution` updates it with row count / error. `logid` threads between both.
+7. **`audit_log`** — two-phase: `record_generation` inserts a row, `record_execution` updates it with row count / error. `logid` threads between both. `get_user_history($userid, $limit)` returns a user's recent SQL-producing generations, newest first (backs `api::history()` and the "recent questions" recall list on `index.php`).
 
 8. **`result`** — plain DTO: `sql`, `raw_response`, `prompt`, `latency_ms`, `tokens_used`, `logid`. `prompt` carries the exact text sent to the LLM (surfaced when `local_sqlchat/showprompt` is on, for reuse on another model).
 
@@ -94,5 +94,6 @@ Request flow (see README.md for ASCII diagram):
 
 - All lang strings in `lang/en/local_sqlchat.php`.
 - Capability `local/sqlchat:use` defined in `db/access.php`; risk bits `RISK_PERSONAL | RISK_DATALOSS`; default to manager only.
-- DB schema in `db/install.xml`; table `local_sqlchat_log`. Schema changes need `upgrade.php` entry in `db/upgrade.php` (file not yet created).
+- DB schema in `db/install.xml`; table `local_sqlchat_log`. Schema changes need an `upgrade.php` step in `db/upgrade.php` plus a `version.php` bump.
+- Privacy provider in `classes/privacy/provider.php` covers `local_sqlchat_log` (all rows in system context): metadata, export, and delete (per-user, per-context, and userlist).
 - No `define('MOODLE_INTERNAL')` check needed in `classes/` — autoloaded by Moodle.
