@@ -21,7 +21,7 @@ It is usable two ways:
 
 1. **Standalone** — the admin page `index.php` (generate → execute).
 2. **As a library** — the `local_sqlchat\api` static façade, called by other
-   plugins (notably `local_reportsources`) that own their own execution and
+   plugins (notably `report_sql`) that own their own execution and
    rendering path.
 
 The key idea is that the plugin never ships a hand-maintained schema file.
@@ -33,7 +33,7 @@ The key idea is that the plugin never ships a hand-maintained schema file.
 ## 2. Request flow
 
 ```
-index.php (POST, sesskey)                      caller (e.g. local_reportsources)
+index.php (POST, sesskey)                      caller (e.g. report_sql)
         │  action=generate                              │  api::generate_sql(q, ctx, extrarules)
         ▼                                                ▼
         └───────────────► api::generate_sql ◄────────────┘
@@ -211,11 +211,11 @@ exist; keep them straight:
 `api::generate_sql($question, $contextid, $extrarules)` threads `$extrarules`
 (default `''`) through `chat_engine::ask` → `build_prompt`, appending it
 verbatim to the Rules block. Standalone use passes nothing.
-`local_reportsources` passes
-`\local_reportsources\local\sql\view::ai_prompt_rules()`, which describes its
-own `%%…%%` tokens (`%%TIMESTAMP%%`, `%%CASE%%`, `%%EPOCH%%`, `%%NOW%%`,
+A caller such as `report_sql` passes
+`\report_sql\local\sql\view::ai_prompt_rules()`, which describes its
+own `%%…%%` tokens (`%%TIMESTAMP%%`, `%%CASE%%`, `%%NOW%%`,
 `%%WWWROOT%%`, `%%CONTEXT_*%%`, `%%COURSEID%%`, `%%COURSECONTEXT%%`).
-`local_reportsources` resolves those itself when its report view is built.
+The caller resolves those itself when its report view is built.
 **This plugin holds no knowledge of those tokens.** When no `$extrarules` is
 supplied, `build_prompt` adds a rule *forbidding* `%%…%%` tokens (the tool
 cannot resolve them) — but only then, so it never fights a caller that taught
@@ -224,7 +224,7 @@ its own tokens.
 **This plugin's own standalone placeholders.**
 `adhoc_placeholder_processor` (run inside `api::execute`, before validation)
 resolves `%%USERID%%`, `%%STARTTIME%%`, `%%ENDTIME%%`, `%%WWWROOT%%`,
-`%%C%%`/`%%S%%`/`%%Q%%`. These are unrelated to the reportsources tokens and
+`%%C%%`/`%%S%%`/`%%Q%%`. These are unrelated to the caller tokens and
 need no external plugin.
 
 ---

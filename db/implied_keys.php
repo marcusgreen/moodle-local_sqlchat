@@ -21,7 +21,7 @@
  * edit the upstream morekeys.xml and regenerate. Shape matches schema::build_fk_map():
  * [table => [column => [reftable => ..., refcol => ...]]].
  *
- * @package   local_reportsources
+ * @package   local_sqlchat
  * @copyright 2026 Marcus Green
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */

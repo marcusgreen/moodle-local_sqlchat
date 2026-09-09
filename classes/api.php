@@ -17,7 +17,7 @@
 namespace local_sqlchat;
 
 /**
- * Public API for local_sqlchat consumers (e.g. local_reportsources).
+ * Public API for local_sqlchat consumers (e.g. report_sql).
  *
  * @package    local_sqlchat
  * @copyright  2026 Marcus Green
@@ -29,13 +29,13 @@ class api {
      * Generate validated SQL for a natural-language question.
      *
      * The caller is responsible for executing the returned SQL via its own
-     * runner (e.g. local_reportsources). This method does not execute SQL.
+     * runner (e.g. report_sql). This method does not execute SQL.
      *
      * @param string $question Plain-English description of the desired data.
      * @param int|null $contextid Context for the AI bridge; defaults to system context.
      * @param string $extrarules Optional extra prompt rules appended verbatim to the
      *  Rules block. This plugin is agnostic about their content — a caller such as
-     *  local_reportsources passes the instructions describing its own %%…%% tokens
+     *  report_sql passes the instructions describing its own %%…%% tokens
      *  so the generated SQL is reusable there. Standalone use leaves it empty, so no
      *  caller-specific tokens are ever emitted.
      * @return result

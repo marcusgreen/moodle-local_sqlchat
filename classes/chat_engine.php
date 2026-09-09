@@ -31,7 +31,7 @@ class chat_engine {
      * @param string $question The user's question.
      * @param int|null $contextid Context to pass to the AI bridge; defaults to the system context.
      * @param string $extrarules Extra prompt rules appended verbatim to the Rules block; a caller
-     *  (e.g. local_reportsources) supplies instructions for its own %%…%% tokens. Empty by default.
+     *  (e.g. report_sql) supplies instructions for its own %%…%% tokens. Empty by default.
      * @return result
      */
     public function ask(string $question, ?int $contextid = null, string $extrarules = ''): result {
@@ -172,12 +172,12 @@ class chat_engine {
             ? 'Schema (CREATE TABLE statements; table/reference names are unprefixed):'
             : 'Schema (table(col1, col2 PK, fkcol→reftable, ...)):';
 
-        // A caller (e.g. local_reportsources) may append its own rules — token
+        // A caller (e.g. report_sql) may append its own rules — token
         // instructions, etc. Trimmed and prefixed with a newline so it slots into
         // the Rules list; empty when the caller supplied nothing.
         $extrarules = trim($extrarules);
         // Only forbid %%…%% placeholder tokens when no caller taught them. A caller
-        // (e.g. local_reportsources) that supplies extrarules resolves its own
+        // (e.g. report_sql) that supplies extrarules resolves its own
         // tokens downstream, so the blanket ban must not fight those instructions.
         $notokens = $extrarules === ''
             ? "\n- Use native {$dialect} functions for dates and text (e.g. FROM_UNIXTIME,"

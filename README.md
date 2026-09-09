@@ -3,21 +3,15 @@
 LLM-driven SQL generator for Moodle. Ask a natural-language question, get a
 validated SELECT statement against the live Moodle DB schema.
 
-## Origin
+## Usage
 
-`local_sqlchat` was created as part of the
-[`local_reportsources`](https://github.com/marcusgreen/local_reportsources)
-plugin — the natural-language-to-SQL engine that plugin needed was split out
-into this standalone component. The two are decoupled and can be used
-**separately or together**:
-
-- **Alone** — `local_sqlchat` works on its own via its single admin page, and
-  `local_reportsources` works on its own without AI.
-- **Together** — `local_reportsources` calls `local_sqlchat\api::generate_sql()`
-  to turn a question into SQL, passing its own `%%…%%` prompt-token rules and
-  resolving those tokens in its own report views. `local_sqlchat` holds no
-  knowledge of those tokens (see "Caller-supplied prompt rules" below), so it
-  neither requires nor depends on `local_reportsources` being installed.
+`local_sqlchat` works on its own via its single admin page, and can also be
+driven by another plugin. `report_sql` (Ad-hoc database queries) is one such
+caller: it works on its own without AI, and when both are installed it calls
+`local_sqlchat\api::generate_sql()` to turn a question into SQL, passing its own
+`%%…%%` prompt-token rules and resolving those tokens in its own report views.
+`local_sqlchat` holds no knowledge of those tokens (see "Caller-supplied prompt
+rules" below), so it neither requires nor depends on any caller being installed.
 
 ## Status
 
@@ -83,7 +77,7 @@ api::validate($somesql);          // throws if not a single safe SELECT
 $rows = api::execute($somesql, $result->logid); // logid optional
 ```
 
-`api::generate_sql()` does NOT execute — callers (e.g. `local_reportsources`)
+`api::generate_sql()` does NOT execute — callers (e.g. `report_sql`)
 keep their existing exec/render path. `api::execute()` re-validates,
 applies the table prefix to unprefixed names, enforces `LIMIT`, sets the
 statement timeout, and records the execution outcome against the supplied
@@ -95,16 +89,16 @@ This plugin is **token-agnostic**. `api::generate_sql($question, $contextid, $ex
 takes a third `$extrarules` string (default `''`) that is appended verbatim to the prompt's
 Rules block. Standalone use passes nothing, so the LLM emits plain SQL with no special tokens.
 
-`local_reportsources` owns its `%%…%%` tokens (dates → `%%TIMESTAMP%%`, text case →
-`%%CASE%%`, `%%EPOCH%%`, `%%NOW%%`, `%%WWWROOT%%`, `%%CONTEXT_*%%`, `%%COURSEID%%`,
-`%%COURSECONTEXT%%`). It passes `\local_reportsources\local\sql\view::ai_prompt_rules()`
+A caller such as `report_sql` owns its `%%…%%` tokens (dates → `%%TIMESTAMP%%`, text case →
+`%%CASE%%`, `%%NOW%%`, `%%WWWROOT%%`, `%%CONTEXT_*%%`, `%%COURSEID%%`,
+`%%COURSECONTEXT%%`). It passes `\report_sql\local\sql\view::ai_prompt_rules()`
 as `$extrarules` so the generated SQL uses them, and resolves them itself when the report
-view is built. If `local_reportsources` is not installed, no caller supplies token rules and
+view is built. If no such caller is present, no token rules are supplied and
 the whole token concern is absent — this plugin neither emits nor resolves them.
 
 (Separately, `api::execute` runs `adhoc_placeholder_processor` over SQL before execution to
 resolve this plugin's own standalone placeholders — `%%USERID%%`, `%%STARTTIME%%`,
-`%%ENDTIME%%`, `%%WWWROOT%%`, `%%C%%`/`%%S%%`/`%%Q%%`. That is unrelated to the reportsources
+`%%ENDTIME%%`, `%%WWWROOT%%`, `%%C%%`/`%%S%%`/`%%Q%%`. That is unrelated to the caller
 tokens above and needs no external plugin.)
 
 ## Security

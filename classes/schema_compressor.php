@@ -679,8 +679,8 @@ class schema_compressor {
 
     /**
      * Load the bundled curated implied foreign-key map (Moodle relationships not declared in any
-     * install.xml). Generated from upstream morekeys.xml by codemods/xml_to_keys.php in the
-     * local_reportsources plugin; shape is [table => [col => [reftable, refcol]]].
+     * install.xml). Generated from upstream morekeys.xml by codemods/xml_to_keys.php;
+     * shape is [table => [col => [reftable, refcol]]].
      *
      * @return array<string, array<string, array{reftable: string, refcol: string}>>
      */
