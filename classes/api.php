@@ -53,7 +53,16 @@ class api {
         $extrarules = trim($extrarules);
         $mergedrules = implode("\n", array_filter([$adminrules, $extrarules]));
 
-        return (new chat_engine())->ask($question, $context->id, $mergedrules);
+        $result = (new chat_engine())->ask($question, $context->id, $mergedrules);
+
+        // Emit {tablename} braces when report_sql's showbraces setting is on.
+        // No-op when report_sql is absent (get_config returns false); execution
+        // still works because apply_prefix unwraps the braces.
+        if ($result->sql !== '' && get_config('report_sql', 'showbraces')) {
+            $result->sql = sql_executor::brace_tables($result->sql);
+        }
+
+        return $result;
     }
 
     /**

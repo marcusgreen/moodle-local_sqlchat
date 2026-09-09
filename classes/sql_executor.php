@@ -378,6 +378,39 @@ class sql_executor {
     }
 
     /**
+     * Wrap every bare Moodle table name in the SQL with `{braces}`, Moodle's
+     * `{tablename}` placeholder syntax. The inverse of the brace-unwrapping done
+     * in apply_prefix, so braced SQL still executes. Names already braced and
+     * dotted column references (e.g. u.course) are left untouched, making the
+     * operation idempotent.
+     *
+     * Used when report_sql's `showbraces` setting is on so the generated SQL
+     * matches the braced form report_sql shows in its editor.
+     *
+     * @param string $sql SQL with unprefixed, unbraced table names.
+     * @return string SQL with bare table names wrapped in braces.
+     */
+    public static function brace_tables(string $sql): string {
+        global $DB;
+        $tables = $DB->get_tables(true);
+        if (!$tables) {
+            return $sql;
+        }
+        $names = array_values($tables);
+        usort($names, static fn($a, $b) => strlen($b) <=> strlen($a));
+        $alts = implode('|', array_map('preg_quote', $names));
+        // Lookbehind excludes '.' and '{' so column references (u.course) and
+        // already-braced names ({user}) are skipped; lookahead excludes '}' for
+        // the same idempotence.
+        $pattern = '/(?<![A-Za-z0-9_.{])(' . $alts . ')(?![A-Za-z0-9_}])/';
+        return preg_replace_callback(
+            $pattern,
+            static fn($m) => '{' . $m[1] . '}',
+            $sql
+        ) ?? $sql;
+    }
+
+    /**
      * Prefix every bare Moodle table name in the SQL with $CFG->prefix.
      * Tokens already starting with the prefix are left alone, so callers can
      * safely pass either prefixed or unprefixed SQL.
@@ -399,6 +432,11 @@ class sql_executor {
         $names = array_values($tables);
         usort($names, static fn($a, $b) => strlen($b) <=> strlen($a));
         $alts = implode('|', array_map('preg_quote', $names));
+        // Table names may arrive brace-wrapped ({user}) when a caller (or this
+        // plugin, when report_sql's showbraces is on) emits Moodle placeholder
+        // syntax. Unwrap known-table braces first so the prefix pass below sees
+        // a bare name; braces around anything else are left untouched.
+        $sql = preg_replace('/\{(' . $alts . ')\}/', '$1', $sql) ?? $sql;
         // Lookbehind excludes '.' as well as word chars so a column reference
         // whose name matches a table (e.g. quiz.course, forum_discussions.forum)
         // is never prefixed. Bare table names in FROM/JOIN are never dotted.
