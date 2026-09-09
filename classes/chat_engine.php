@@ -210,6 +210,8 @@ Rules:
   so the result has no duplicate column names — e.g. c.id AS courseid,
   cm.id AS cmid, m.id AS moduleid. Duplicate output names fail at execution.
 - Always include LIMIT 100 unless the question specifies a different limit.{$notokens}
+- When the question asks for content from the user table, also SELECT the
+  user.username field so rows can be identified unambiguously.
 - Never reference: user.password, user.secret, user.auth_*token,
   user_password_history.*, oauth2_*.client_secret,
   config.value where name LIKE '%key%' OR '%secret%'.
