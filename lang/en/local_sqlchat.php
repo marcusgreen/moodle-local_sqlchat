@@ -33,7 +33,7 @@ $string['settings:maxrows_desc'] = 'Hard cap on rows returned per query.';
 $string['settings:timeoutsec'] = 'Query timeout (seconds)';
 $string['settings:timeoutsec_desc'] = 'Statement timeout enforced on the read-only connection.';
 $string['settings:purpose'] = 'AI bridge purpose';
-$string['settings:purpose_desc'] = 'Routing tag passed to tool_ai_bridge::perform_request().';
+$string['settings:purpose_desc'] = 'Routing tag passed to the AI backend\'s perform_request().';
 
 $string['settings:backend'] = 'AI backend';
 $string['settings:backend_desc'] = 'Which AI subsystem to use for SQL generation.';

@@ -17,7 +17,7 @@
 namespace local_sqlchat;
 
 /**
- * Orchestrates: schema -> prompt -> LLM (via tool_ai_bridge) -> validator.
+ * Orchestrates: schema -> prompt -> LLM (via llm_bridge) -> validator.
  *
  * @package    local_sqlchat
  * @copyright  2026 Marcus Green
@@ -50,7 +50,7 @@ class chat_engine {
 
             $contextid = $contextid ?? \context_system::instance()->id;
             $backend = (string) (get_config('local_sqlchat', 'backend') ?: 'core_ai_subsystem');
-            $bridge = new \tool_ai_bridge\ai_bridge($contextid, 'local_sqlchat', $backend);
+            $bridge = new llm_bridge($contextid, 'local_sqlchat', $backend);
             $purpose = (string) (get_config('local_sqlchat', 'purpose') ?: 'feedback');
             $aistart = microtime(true);
             $raw = $bridge->perform_request($prompt, $purpose);

@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Plugin identity
 
 Moodle local plugin: `local_sqlchat` (component name used everywhere in PHP, lang strings, capabilities, DB).
-Requires Moodle ≥ 4.5 (`2024100700`) and the `tool_ai_bridge` plugin.
+Requires Moodle ≥ 4.5 (`2024100700`). No plugin dependencies.
 Alpha / MVP — no tests yet, no JS AMD modules, single page UI.
 
 ## Development commands
@@ -37,7 +37,7 @@ Request flow (see README.md for ASCII diagram):
 
 2. **`api`** (static façade) — capability check (`local/sqlchat:use`), then delegates to `chat_engine` or `sql_executor`. Entry point for external callers such as `report_sql`.
 
-3. **`chat_engine`** — picks the schema text for the configured **retrieval mode** (see below), builds the LLM prompt (dialect-aware, unprefixed table names, format-aware legend), calls `tool_ai_bridge\ai_bridge::perform_request()`, extracts SQL from raw response, runs `sql_validator`. Carries the built prompt back on `result->prompt`. The prompt is **token-agnostic**: `api::generate_sql` takes an `$extrarules` string (threaded through `chat_engine::ask` → `build_prompt`) that is appended verbatim to the Rules block. Standalone use (`index.php`) passes nothing. A caller such as `report_sql` passes `\report_sql\local\sql\view::ai_prompt_rules()`, which describes its own `%%…%%` tokens (`%%TIMESTAMP%%`, `%%CASE%%`, `%%NOW%%`, `%%WWWROOT%%`, `%%CONTEXT_*%%`, `%%COURSEID%%`, `%%COURSECONTEXT%%`); the caller resolves them itself when the view is built. This plugin holds **no** knowledge of those tokens, and if no such caller is present none are supplied.
+3. **`chat_engine`** — picks the schema text for the configured **retrieval mode** (see below), builds the LLM prompt (dialect-aware, unprefixed table names, format-aware legend), calls `llm_bridge::perform_request()`, extracts SQL from raw response, runs `sql_validator`. Carries the built prompt back on `result->prompt`. The prompt is **token-agnostic**: `api::generate_sql` takes an `$extrarules` string (threaded through `chat_engine::ask` → `build_prompt`) that is appended verbatim to the Rules block. Standalone use (`index.php`) passes nothing. A caller such as `report_sql` passes `\report_sql\local\sql\view::ai_prompt_rules()`, which describes its own `%%…%%` tokens (`%%TIMESTAMP%%`, `%%CASE%%`, `%%NOW%%`, `%%WWWROOT%%`, `%%CONTEXT_*%%`, `%%COURSEID%%`, `%%COURSECONTEXT%%`); the caller resolves them itself when the view is built. This plugin holds **no** knowledge of those tokens, and if no such caller is present none are supplied.
 
 4. **`schema_compressor`** — walks every `install.xml` (core + all plugins + subplugins) via `core_component`, infers FKs by convention. Two output formats:
    - **Compact** (`get_compact()`) — one line per table, `table(col, col PK, fkcol→reftable, ...)`. Cached in MUC (`local_sqlchat/schema`, key `compressed_v4`).
@@ -75,7 +75,7 @@ Request flow (see README.md for ASCII diagram):
 
 - **LLM outputs unprefixed table names.** `sql_executor::apply_prefix` adds `$CFG->prefix` at runtime. Never store or display prefixed SQL to users.
 - **`api::generate_sql` does not execute.** Callers own execution so they can use their own render path. `api::execute` re-validates before running.
-- **Backend is pluggable.** `tool_ai_bridge` abstracts `core_ai_subsystem`, `local_ai_manager`, and `tool_aimanager`. Backend selected by admin setting `local_sqlchat/backend`.
+- **Backend is pluggable.** `llm_bridge` (in this plugin, no external dependency) supports `core_ai_subsystem`, `local_ai_manager`, and `tool_aimanager`. Backend selected by admin setting `local_sqlchat/backend`; if the selected backend's plugin (`local_ai_manager` / `tool_aimanager`) isn't installed, `llm_bridge` silently falls back to `core_ai_subsystem`, which is always available on Moodle ≥ 4.5.
 - **Schema cache keys are `compressed_v4` (compact), `ddl_map_v3` (DDL) and `ddl_slim_map_v1` (slim DDL).** Bump the relevant constant in `schema_compressor` if that output format changes incompatibly.
 
 ## Settings
@@ -84,7 +84,7 @@ Request flow (see README.md for ASCII diagram):
 |---|---|---|
 | `local_sqlchat/maxrows` | 1000 | LIMIT injected when none present |
 | `local_sqlchat/timeoutsec` | 5 | Per-session statement timeout |
-| `local_sqlchat/purpose` | `feedback` | Passed to `tool_ai_bridge` |
+| `local_sqlchat/purpose` | `feedback` | Passed to `llm_bridge` |
 | `local_sqlchat/backend` | `core_ai_subsystem` | AI backend selector |
 | `local_sqlchat/retrieval` | `full` | Schema retrieval mode: `full` / `bm25` / `ddl` / `ddl_bm25` / `ddl_slim` / `ddl_slim_bm25` (see Retrieval modes) |
 | `local_sqlchat/showprompt` | off | Render the prompt sent to the LLM beneath the generated SQL, for reuse on another model |
