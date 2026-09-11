@@ -38,9 +38,19 @@ class api {
      *  report_sql passes the instructions describing its own %%…%% tokens
      *  so the generated SQL is reusable there. Standalone use leaves it empty, so no
      *  caller-specific tokens are ever emitted.
+     * @param array $history Prior turns in this conversation, oldest first, as
+     *  ['question' => string, 'sql' => string] entries. Lets a caller such as report_sql
+     *  carry a multi-turn editing session (refine, "also add X", "instead of Y") into the
+     *  prompt instead of only the single most recent SQL. This plugin holds no session state
+     *  of its own — the caller owns and passes the turn list. Empty by default.
      * @return result
      */
-    public static function generate_sql(string $question, ?int $contextid = null, string $extrarules = ''): result {
+    public static function generate_sql(
+        string $question,
+        ?int $contextid = null,
+        string $extrarules = '',
+        array $history = []
+    ): result {
         $context = $contextid !== null
             ? \context::instance_by_id($contextid)
             : \context_system::instance();
@@ -53,7 +63,7 @@ class api {
         $extrarules = trim($extrarules);
         $mergedrules = implode("\n", array_filter([$adminrules, $extrarules]));
 
-        $result = (new chat_engine())->ask($question, $context->id, $mergedrules);
+        $result = (new chat_engine())->ask($question, $context->id, $mergedrules, $history);
 
         // Emit {tablename} braces when report_sql's showbraces setting is on.
         // No-op when report_sql is absent (get_config returns false); execution

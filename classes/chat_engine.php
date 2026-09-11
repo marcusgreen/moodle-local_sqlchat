@@ -32,9 +32,13 @@ class chat_engine {
      * @param int|null $contextid Context to pass to the AI bridge; defaults to the system context.
      * @param string $extrarules Extra prompt rules appended verbatim to the Rules block; a caller
      *  (e.g. report_sql) supplies instructions for its own %%…%% tokens. Empty by default.
+     * @param array $history Prior turns in this conversation, oldest first. Each entry is
+     *  ['question' => string, 'sql' => string]. Lets the model resolve references such as
+     *  "that", "those", "also" against earlier turns, not just the immediately preceding one.
+     *  Capped and truncated in build_prompt() to bound token growth. Empty by default.
      * @return result
      */
-    public function ask(string $question, ?int $contextid = null, string $extrarules = ''): result {
+    public function ask(string $question, ?int $contextid = null, string $extrarules = '', array $history = []): result {
         $start = microtime(true);
         $audit = new audit_log();
 
@@ -46,7 +50,7 @@ class chat_engine {
             $mode = (string) (get_config('local_sqlchat', 'retrieval') ?: 'full');
             [$schema, $isddl] = $this->retrieve_schema($compressor, $mode, $question);
 
-            $prompt = $this->build_prompt($schema, $question, $isddl, $extrarules);
+            $prompt = $this->build_prompt($schema, $question, $isddl, $extrarules, $history);
 
             $contextid = $contextid ?? \context_system::instance()->id;
             $backend = (string) (get_config('local_sqlchat', 'backend') ?: 'core_ai_subsystem');
@@ -157,9 +161,16 @@ class chat_engine {
      * @param string $question The user's question.
      * @param bool $isddl Whether $schema is CREATE TABLE DDL rather than the compact format.
      * @param string $extrarules Caller-supplied rules appended verbatim to the Rules block.
+     * @param array $history Prior turns, oldest first; see ask() for the entry shape.
      * @return string
      */
-    private function build_prompt(string $schema, string $question, bool $isddl = false, string $extrarules = ''): string {
+    private function build_prompt(
+        string $schema,
+        string $question,
+        bool $isddl = false,
+        string $extrarules = '',
+        array $history = []
+    ): string {
         global $CFG;
         $dialect = match ($CFG->dbtype ?? 'mariadb') {
             'pgsql' => 'PostgreSQL',
@@ -186,6 +197,8 @@ class chat_engine {
                 . "\n  tool does not resolve them and they fail at execution."
             : '';
         $extrarules = $extrarules === '' ? '' : "\n" . $extrarules;
+
+        $conversation = $this->build_history_block($history);
 
         return <<<PROMPT
 You are a Moodle SQL generator. Output ONLY a single SELECT statement.
@@ -242,11 +255,60 @@ Rules:
 
 {$schemalegend}
 {$schema}
-
+{$conversation}
 Question: {$question}
 
 SQL:
 PROMPT;
+    }
+
+    /**
+     * Render prior turns of this conversation as a prompt block, so the model can resolve
+     * references ("that", "those", "also", "instead") against earlier questions and SQL, not
+     * just the single most recent one.
+     *
+     * Capped to the last 3 turns and each field truncated, since none of the supported LLM
+     * backends take a message array — every turn is resent as plain text on every call, so
+     * an unbounded history would grow prompt tokens linearly with conversation length.
+     *
+     * @param array $history Prior turns, oldest first. Each entry: ['question' => string, 'sql' => string].
+     * @return string Empty string when there is no history; otherwise a labelled block with a
+     *  leading blank line, ready to slot before the "Question:" line.
+     */
+    private function build_history_block(array $history): string {
+        if (!$history) {
+            return '';
+        }
+
+        $maxturns = 3;
+        $maxquestionlen = 300;
+        $maxsqllen = 500;
+
+        $turns = array_slice($history, -$maxturns);
+        $lines = [];
+        foreach ($turns as $turn) {
+            $turnquestion = trim((string) ($turn['question'] ?? ''));
+            $turnsql = trim((string) ($turn['sql'] ?? ''));
+            if ($turnquestion === '' && $turnsql === '') {
+                continue;
+            }
+            if (function_exists('mb_strimwidth')) {
+                $turnquestion = mb_strimwidth($turnquestion, 0, $maxquestionlen, '…');
+                $turnsql = mb_strimwidth($turnsql, 0, $maxsqllen, '…');
+            } else {
+                $turnquestion = strlen($turnquestion) > $maxquestionlen
+                    ? substr($turnquestion, 0, $maxquestionlen) . '…' : $turnquestion;
+                $turnsql = strlen($turnsql) > $maxsqllen ? substr($turnsql, 0, $maxsqllen) . '…' : $turnsql;
+            }
+            $lines[] = "Q: {$turnquestion}\nSQL: {$turnsql}";
+        }
+        if (!$lines) {
+            return '';
+        }
+
+        return "\nConversation so far (oldest first — resolve references like \"that\", \"those\","
+            . " \"also\", \"instead\" against these earlier turns; ignore if the question below"
+            . " starts a new, unrelated report):\n" . implode("\n\n", $lines) . "\n";
     }
 
     /**
